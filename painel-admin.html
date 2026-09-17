@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <script>
+    (function protegerPagina() {
+        const token = localStorage.getItem('token');
+        if (!token) window.location.replace('login.html');
+    })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bravus Barber - Administração</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Alertas Profissionais e Geração de PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body { padding: 20px; padding-bottom: 90px; }
+        .header-title { color: var(--gold); text-align: center; font-size: 22px; margin-bottom: 25px; }
+        
+        .tab-container { display: flex; justify-content: space-between; margin-bottom: 25px; gap: 10px; }
+        .tab-icon {
+            flex: 1; background-color: var(--card-bg); padding: 15px 5px;
+            border-radius: 12px; text-align: center; cursor: pointer;
+            border: 2px solid transparent; transition: 0.3s;
+        }
+        .tab-icon.active { border-color: var(--gold); background-color: rgba(212, 175, 55, 0.1); }
+        .tab-icon span { display: block; font-size: 24px; margin-bottom: 5px; }
+        .tab-icon p { font-size: 11px; font-weight: bold; color: var(--text-gray); margin: 0; }
+        .tab-icon.active p { color: var(--gold); }
+
+        .admin-section { display: none; }
+        .admin-section.active { display: block; }
+        
+        .admin-card { background-color: var(--card-bg); padding: 20px; border-radius: 12px; border-top: 4px solid var(--gold); }
+        .admin-card h3 { margin-bottom: 15px; font-size: 16px; color: var(--text-white); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 13px; color: var(--text-gray); }
+        
+        input, select {
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
+            background-color: var(--bg-color); color: var(--text-white); font-size: 15px; outline: none;
+        }
+        input:focus, select:focus { border-color: var(--gold); }
+        
+        .msg-feedback { text-align: center; margin-top: 10px; font-size: 13px; font-weight: bold; }
+
+        .resultado-card {
+            background-color: var(--bg-color); padding: 25px 20px;
+            border-radius: 8px; border: 1px solid #333;
+        }
+        .cabecalho-relatorio { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333; }
+        .resumo-faturamento { color: var(--success-green); font-size: 26px; font-weight: bold; margin-top: 10px; }
+        
+        .item-relatorio {
+            display: flex; justify-content: space-between; font-size: 13px;
+            padding: 8px 0; border-bottom: 1px dashed #333; align-items: center;
+        }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); z-index: 1000; justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: var(--card-bg); width: 100%; max-width: 400px;
+            padding: 25px; border-radius: 12px; border-top: 4px solid var(--gold); position: relative;
+        }
+        .btn-fechar { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-gray); font-size: 20px; cursor: pointer; }
+        .botoes-lista { display: flex; gap: 8px; }
+        .btn-editar { background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+    </style>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#d4af37">
+</head>
+<body>
+
+    <div style="padding-top: 20px; text-align: center;">
+        <img src="logo.png" alt="Bravus Barber" class="logo-bravus" style="margin: 0 auto 15px auto; max-width: 100px; display: block;">
+    </div>
+    
+    <h2 class="header-title">Gestão do Sistema</h2>
+
+    <div class="tab-container">
+        <div class="tab-icon active" onclick="mudarAba('sec-servicos', this)">
+            <span>✂️</span><p>Serviços</p>
+        </div>
+        <div class="tab-icon" onclick="mudarAba('sec-barbeiros', this)">
+            <span>💈</span><p>Barbeiros</p>
+        </div>
+        <div class="tab-icon" onclick="mudarAba('sec-relatorios', this)">
+            <span>📊</span><p>Relatórios</p>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 1: SERVIÇOS -->
+    <div id="sec-servicos" class="admin-section active">
+        <div class="admin-card">
+            <h3>Adicionar Novo Serviço</h3>
+            <div class="form-group"><label>Nome do Serviço</label><input type="text" id="nome-servico"></div>
+            <div class="form-group"><label>Duração (minutos)</label><input type="number" id="duracao-servico"></div>
+            <div class="form-group"><label>Preço (R$)</label><input type="number" id="preco-servico" step="0.01"></div>
+            <button class="btn-primary" onclick="cadastrarServico()">Salvar Serviço</button>
+            <p id="msg-servico" class="msg-feedback"></p>
+            
+            <div class="admin-card" style="margin-top: 20px;">
+                <h3>Catálogo Ativo</h3>
+                <div id="lista-gerenciar-servicos">Carregando...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 2: BARBEIROS -->
+    <div id="sec-barbeiros" class="admin-section">
+        <div class="admin-card">
+            <h3>Cadastrar Barbeiro</h3>
+            <div class="form-group"><label>Nome Completo</label><input type="text" id="nome-prof"></div>
+            <div class="form-group"><label>Especialidade</label><input type="text" id="especialidade-prof"></div>
+            <div class="form-group"><label>CPF</label><input type="text" id="cpf-prof"></div>
+            <div class="form-group"><label>Telefone</label><input type="tel" id="telefone-prof"></div>
+            <div class="form-group"><label>E-mail (Acesso)</label><input type="email" id="email-prof"></div>
+            <div class="form-group"><label>Senha Inicial</label><input type="password" id="senha-prof"></div>
+            <button class="btn-primary" onclick="cadastrarProfissionalCompleto()">Salvar e Gerar Login</button>
+            <p id="msg-prof" class="msg-feedback"></p>
+            
+            <div class="admin-card" style="margin-top: 20px;">
+                <h3>Equipe Bravus</h3>
+                <div id="lista-gerenciar-barbeiros">Carregando...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 3: RELATÓRIOS -->
+    <div id="sec-relatorios" class="admin-section">
+        <div class="admin-card">
+            <h3>Controle de Resultados</h3>
+            <div class="form-group">
+                <label>Selecione o Barbeiro</label>
+                <select id="filtro-barbeiro"><option value="">Carregando...</option></select>
+            </div>
+            <div class="form-group"><label>Data Inicial</label><input type="date" id="filtro-inicio"></div>
+            <div class="form-group"><label>Data Final</label><input type="date" id="filtro-fim"></div>
+            <button class="btn-primary" onclick="gerarRelatorio()">Gerar Relatório</button>
+            
+            <!-- Área do PDF -->
+            <div id="area-resultado" style="display: none; margin-top: 25px;">
+                <button type="button" class="btn-primary" onclick="exportarPDF(event)" style="margin-bottom: 15px; background: transparent; border: 1px solid var(--gold); color: var(--gold);">
+                     📄 Salvar em PDF
+                </button>
+                
+                <!-- Esta div inteira é o que será capturado e transformado em PDF -->
+                <div class="resultado-card" id="relatorio-print">
+                    <div class="cabecalho-relatorio" id="cabecalho-relatorio">
+                        <!-- Preenchido via JS -->
+                    </div>
+                    <div id="lista-relatorio"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modais de Edição -->
+    <div class="modal-overlay" id="modal-servico">
+        <div class="modal-content">
+            <button class="btn-fechar" onclick="fecharModais()">✖</button>
+            <h3 style="margin-bottom: 15px;">Editar Serviço</h3>
+            <input type="hidden" id="edit-id-servico">
+            <div class="form-group"><label>Nome</label><input type="text" id="edit-nome-servico"></div>
+            <div class="form-group"><label>Duração (min)</label><input type="number" id="edit-duracao-servico"></div>
+            <div class="form-group"><label>Preço (R$)</label><input type="number" id="edit-preco-servico" step="0.01"></div>
+            <button class="btn-primary" onclick="salvarEdicaoServico()">Atualizar Serviço</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-profissional">
+        <div class="modal-content">
+            <button class="btn-fechar" onclick="fecharModais()">✖</button>
+            <h3 style="margin-bottom: 15px;">Editar Profissional</h3>
+            <input type="hidden" id="edit-id-prof">
+            <div class="form-group"><label>Nome</label><input type="text" id="edit-nome-prof"></div>
+            <div class="form-group"><label>Especialidade</label><input type="text" id="edit-especialidade-prof"></div>
+            <div class="form-group"><label>CPF</label><input type="text" id="edit-cpf-prof"></div>
+            <div class="form-group"><label>Telefone</label><input type="tel" id="edit-telefone-prof"></div>
+            <button class="btn-primary" onclick="salvarEdicaoProfissional()">Atualizar Barbeiro</button>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <a href="#" class="nav-item active"><span class="nav-icon">⚙️</span>Gestão</a>
+        <a href="#" class="nav-item" onclick="fazerLogoutAdmin()"><span class="nav-icon">🚪</span>Sair</a>
+    </div>
+
+    <script>
+        function fazerLogoutAdmin() {
+            Swal.fire({
+                title: 'Encerrar sessão?',
+                icon: 'warning',
+                showCancelButton: true,
+                background: 'var(--card-bg)', color: 'var(--text-white)',
+                confirmButtonColor: 'var(--danger-red)', cancelButtonColor: '#333',
+                confirmButtonText: 'Sair', cancelButtonText: 'Cancelar'
+            }).then((r) => {
+                if (r.isConfirmed) {
+                    localStorage.removeItem('token');
+                    window.location.replace('login.html'); 
+                }
+            });
+        }
+
+        function mudarAba(idSecao, elementoClicado) {
+            document.querySelectorAll('.tab-icon').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
+            elementoClicado.classList.add('active');
+            document.getElementById(idSecao).classList.add('active');
+            if (idSecao === 'sec-relatorios') carregarListaBarbeiros();
+        }
+
+        async function cadastrarServico() {
+            const token = localStorage.getItem('token');
+            const nome = document.getElementById('nome-servico').value;
+            const duracao = document.getElementById('duracao-servico').value;
+            const preco = document.getElementById('preco-servico').value;
+
+            if (!nome || !duracao || !preco) return Swal.fire('Atenção', 'Preencha os dados do serviço.', 'warning');
+
+            try {
+                const res = await fetch('https://bravus-api.onrender.com/api/servicos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ nome, duracao_minutos: parseInt(duracao), preco: parseFloat(preco) })
+                });
+
+                if (res.ok) {
+                    Swal.fire({ title: 'Sucesso!', text: 'Serviço salvo.', icon: 'success', background: 'var(--card-bg)', color: '#fff', timer: 1500, showConfirmButton: false });
+                    document.getElementById('nome-servico').value = '';
+                    document.getElementById('duracao-servico').value = '';
+                    document.getElementById('preco-servico').value = '';
+                    carregarGerenciamento();
+                } else {
+                    const erro = await res.json();
+                    Swal.fire('Ops!', erro.erro, 'error');
+                }
+            } catch (e) { Swal.fire('Erro!', 'Falha de conexão.', 'error'); }
+        }
+
+        async function cadastrarProfissionalCompleto() {
+            const token = localStorage.getItem('token');
+            const nome = document.getElementById('nome-prof').value;
+            const especialidade = document.getElementById('especialidade-prof').value;
+            const cpf = document.getElementById('cpf-prof').value;
+            const telefone = document.getElementById('telefone-prof').value;
+            const email = document.getElementById('email-prof').value;
+            const senha = document.getElementById('senha-prof').value;
+
+            if (!nome || !cpf || !email || !senha) return Swal.fire('Atenção', 'Preencha os dados básicos.', 'warning');
+
+            try {
+                const res = await fetch('https://bravus-api.onrender.com/api/admin/profissionais', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ nome, especialidade, cpf, telefone, email, senha })
+                });
+
+                if (res.ok) {
+                    Swal.fire({ title: 'Criado!', text: 'Barbeiro registrado com acesso liberado.', icon: 'success', background: 'var(--card-bg)', color: '#fff', timer: 2000, showConfirmButton: false });
+                    document.querySelectorAll('#sec-barbeiros input').forEach(inp => inp.value = '');
+                    carregarGerenciamento();
+                } else {
+                    const erro = await res.json();
+                    Swal.fire('Ops!', erro.erro, 'error');
+                }
+            } catch (e) { Swal.fire('Erro!', 'Falha de conexão.', 'error'); }
+        }
+
+        async function carregarListaBarbeiros() {
+            const select = document.getElementById('filtro-barbeiro');
+            try {
+                const res = await fetch('https://bravus-api.onrender.com/api/profissionais');
+                const dados = await res.json();
+                select.innerHTML = '<option value="">Selecione um profissional...</option>';
+                dados.forEach(prof => select.innerHTML += `<option value="${prof.id}">${prof.nome}</option>`);
+            } catch (e) { select.innerHTML = '<option value="">Erro ao carregar</option>'; }
+        }
+
+        async function gerarRelatorio() {
+            const token = localStorage.getItem('token');
+            const select = document.getElementById('filtro-barbeiro');
+            const idProfissional = select.value;
+            const nomeProfissional = select.options[select.selectedIndex]?.text;
+            const dataInicio = document.getElementById('filtro-inicio').value;
+            const dataFim = document.getElementById('filtro-fim').value;
+            
+            if (!idProfissional || !dataInicio || !dataFim) {
+                return Swal.fire('Atenção', 'Selecione o profissional e o período contábil.', 'warning');
+            }
+
+            try {
+                const url = `https://bravus-api.onrender.com/api/admin/relatorios?id_profissional=${idProfissional}&data_inicio=${dataInicio}&data_fim=${dataFim}`;
+                const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+                const dados = await res.json();
+
+                if (res.ok) {
+                    document.getElementById('area-resultado').style.display = 'block';
+                    
+                    // Estruturação do cabeçalho do PDF simulando a identificação de um relatório gerencial
+                    const dataIFmt = dataInicio.split('-').reverse().join('/');
+                    const dataFFmt = dataFim.split('-').reverse().join('/');
+                    
+                    document.getElementById('cabecalho-relatorio').innerHTML = `
+                        <img src="logo.png" style="max-width: 60px; margin-bottom:10px;">
+                        <div style="font-size: 13px; color: var(--text-gray); text-transform: uppercase;">Apuração de Serviços</div>
+                        <div style="font-size: 18px; color: var(--gold); font-weight: bold; margin: 5px 0;">${nomeProfissional}</div>
+                        <div style="font-size: 12px; color: var(--text-gray); margin-bottom: 15px;">Período: ${dataIFmt} a ${dataFFmt}</div>
+                        <div style="font-size: 12px; color: var(--text-white);">Receita Bruta Gerada</div>
+                        <div class="resumo-faturamento">R$ ${dados.total_faturado.toFixed(2)}</div>
+                        <div style="font-size: 11px; color: var(--text-gray); margin-top:5px;">Volume: ${dados.quantidade} atendimentos concluídos</div>
+                    `;
+                    
+                    const listaHtml = document.getElementById('lista-relatorio');
+                    listaHtml.innerHTML = '';
+                    
+                    if (dados.atendimentos.length === 0) {
+                        listaHtml.innerHTML = '<div style="text-align:center; padding: 20px 0; color: var(--text-gray);">Sem movimentação no período selecionado.</div>';
+                    } else {
+                        dados.atendimentos.forEach(item => {
+                            const dataFmt = new Date(item.data_hora).toLocaleDateString('pt-BR');
+                            listaHtml.innerHTML += `
+                                <div class="item-relatorio">
+                                    <span>${dataFmt} - ${item.servico_realizado}<br><small style="color:var(--text-gray)">Cliente: ${item.nome_cliente}</small></span>
+                                    <span><strong>R$ ${parseFloat(item.valor_receita).toFixed(2)}</strong></span>
+                                </div>
+                            `;
+                        });
+                    }
+                } else {
+                    Swal.fire('Erro na Consulta', dados.erro, 'error');
+                }
+            } catch (e) {
+                Swal.fire('Erro!', 'Falha de comunicação.', 'error');
+            }
+        }
+
+        function exportarPDF(event) {
+            // 1. Trava o comportamento padrão do navegador (impede o refresh)
+            if (event) event.preventDefault();
+            
+            // Exibe o aviso de carregamento para o usuário não clicar duas vezes
+            Swal.fire({
+                title: 'Gerando documento...',
+                text: 'Isso pode levar alguns segundos.',
+                background: 'var(--card-bg)',
+                color: 'var(--text-white)',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // 2. Coleta o nome do barbeiro com segurança (evitando erro de undefined)
+            const select = document.getElementById('filtro-barbeiro');
+            let nomeProf = "Equipe";
+            try {
+                if (select.selectedIndex >= 0) {
+                    nomeProf = select.options[select.selectedIndex].text.split(' ')[0];
+                }
+            } catch(e) {}
+
+            const elemento = document.getElementById('relatorio-print');
+            
+            const opcoes = {
+                margin:       15,
+                filename:     `Resultado_Bravus_${nomeProf}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, backgroundColor: '#121214' }, // Removido CORS estrito para rodar melhor localmente
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            
+            // Oculta a borda para a impressão
+            elemento.style.border = 'none';
+            
+            // 3. Executa a conversão e fecha o aviso quando o download começar
+            html2pdf().set(opcoes).from(elemento).save().then(() => {
+                elemento.style.border = '1px solid #333'; // Restaura a borda na tela
+                Swal.close(); // Esconde o aviso de "Gerando documento"
+            }).catch(erro => {
+                console.error("Erro na geração do PDF:", erro);
+                elemento.style.border = '1px solid #333';
+                Swal.fire({
+                    title: 'Ops!',
+                    text: 'Não foi possível gerar o PDF. Verifique o console.',
+                    icon: 'error',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-white)',
+                    confirmButtonColor: 'var(--danger-red)'
+                });
+            });
+        }
+
+        async function carregarGerenciamento() {
+            try {
+                const resServicos = await fetch('https://bravus-api.onrender.com/api/servicos');
+                const servicos = await resServicos.json();
+                const listaS = document.getElementById('lista-gerenciar-servicos');
+                listaS.innerHTML = '';
+                servicos.forEach(s => {
+                    const dadosObj = encodeURIComponent(JSON.stringify(s));
+                    listaS.innerHTML += `
+                        <div class="item-relatorio">
+                            <span>${s.nome} <br><small>R$ ${s.preco}</small></span>
+                            <div class="botoes-lista">
+                                <button class="btn-editar" onclick="abrirModalServico('${dadosObj}')">Editar</button>
+                                <button onclick="excluirItem('servicos', ${s.id})" style="background:transparent; border:1px solid var(--danger-red); color:var(--danger-red); padding:5px 10px; border-radius:5px;">Excluir</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (e) {}
+
+            try {
+                const resProf = await fetch('https://bravus-api.onrender.com/api/profissionais');
+                const profs = await resProf.json();
+                const listaP = document.getElementById('lista-gerenciar-barbeiros');
+                listaP.innerHTML = '';
+                profs.forEach(p => {
+                    const dadosObj = encodeURIComponent(JSON.stringify(p));
+                    listaP.innerHTML += `
+                        <div class="item-relatorio">
+                            <span>${p.nome} <br><small>${p.especialidade}</small></span>
+                            <div class="botoes-lista">
+                                <button class="btn-editar" onclick="abrirModalProfissional('${dadosObj}')">Editar</button>
+                                <button onclick="excluirItem('profissionais', ${p.id})" style="background:transparent; border:1px solid var(--danger-red); color:var(--danger-red); padding:5px 10px; border-radius:5px;">Excluir</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (e) {}
+        }
+
+        function fecharModais() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); }
+
+        function abrirModalServico(dadosCodificados) {
+            const s = JSON.parse(decodeURIComponent(dadosCodificados));
+            document.getElementById('edit-id-servico').value = s.id;
+            document.getElementById('edit-nome-servico').value = s.nome;
+            document.getElementById('edit-duracao-servico').value = s.duracao_minutos || 0;
+            document.getElementById('edit-preco-servico').value = s.preco;
+            document.getElementById('modal-servico').classList.add('active');
+        }
+
+        function abrirModalProfissional(dadosCodificados) {
+            const p = JSON.parse(decodeURIComponent(dadosCodificados));
+            document.getElementById('edit-id-prof').value = p.id;
+            document.getElementById('edit-nome-prof').value = p.nome;
+            document.getElementById('edit-especialidade-prof').value = p.especialidade;
+            document.getElementById('edit-cpf-prof').value = p.cpf || '';
+            document.getElementById('edit-telefone-prof').value = p.telefone || '';
+            document.getElementById('modal-profissional').classList.add('active');
+        }
+
+        async function salvarEdicaoServico() {
+            const id = document.getElementById('edit-id-servico').value;
+            const nome = document.getElementById('edit-nome-servico').value;
+            const duracao = document.getElementById('edit-duracao-servico').value;
+            const preco = document.getElementById('edit-preco-servico').value;
+            await enviarEdicao('servicos', id, { nome, duracao_minutos: duracao, preco });
+        }
+
+        async function salvarEdicaoProfissional() {
+            const id = document.getElementById('edit-id-prof').value;
+            const nome = document.getElementById('edit-nome-prof').value;
+            const especialidade = document.getElementById('edit-especialidade-prof').value;
+            const cpf = document.getElementById('edit-cpf-prof').value;
+            const telefone = document.getElementById('edit-telefone-prof').value;
+            await enviarEdicao('profissionais', id, { nome, especialidade, cpf, telefone });
+        }
+
+        async function enviarEdicao(tipo, id, corpo) {
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`https://bravus-api.onrender.com/api/admin/${tipo}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify(corpo)
+                });
+                
+                if (res.ok) {
+                    Swal.fire({ title: 'Atualizado!', icon: 'success', background: 'var(--card-bg)', color: '#fff', timer: 1500, showConfirmButton: false });
+                    fecharModais(); carregarGerenciamento();
+                } else {
+                    const dados = await res.json();
+                    Swal.fire('Ops!', dados.erro, 'error');
+                }
+            } catch (e) { Swal.fire('Erro!', 'Falha na conexão.', 'error'); }
+        }
+
+        async function excluirItem(tipo, id) {
+            const confirmacao = await Swal.fire({
+                title: 'Excluir registro?',
+                text: "Esta ação não pode ser desfeita.",
+                icon: 'warning',
+                showCancelButton: true,
+                background: 'var(--card-bg)', color: 'var(--text-white)',
+                confirmButtonColor: 'var(--danger-red)', cancelButtonColor: '#333',
+                confirmButtonText: 'Sim, excluir', cancelButtonText: 'Cancelar'
+            });
+
+            if (!confirmacao.isConfirmed) return;
+
+            const token = localStorage.getItem('token');
+            try {
+                const resposta = await fetch(`https://bravus-api.onrender.com/api/admin/${tipo}/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                const dados = await resposta.json();
+                if (resposta.ok) {
+                    Swal.fire({ title: 'Excluído!', text: dados.mensagem, icon: 'success', background: 'var(--card-bg)', color: '#fff', timer: 1500, showConfirmButton: false });
+                    carregarGerenciamento(); 
+                } else {
+                    Swal.fire('Bloqueado', dados.erro, 'error');
+                }
+            } catch (erro) {
+                Swal.fire('Erro!', 'Falha na conexão.', 'error');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', carregarGerenciamento);
+    </script>
+</body>
+</html>

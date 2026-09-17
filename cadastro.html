@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bravus Barber - Criar Conta</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 0;
+        }
+        .header-text {
+            margin-bottom: 30px;
+            margin-top: 20px;
+        }
+        .header-text h1 {
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .header-text p {
+            color: var(--text-gray);
+            font-size: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .input-dark {
+            width: 100%;
+            background-color: var(--card-bg);
+            border: 1px solid transparent;
+            color: var(--text-white);
+            padding: 16px 15px;
+            border-radius: 12px;
+            font-size: 15px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .input-dark::placeholder {
+            color: var(--text-gray);
+        }
+        .input-dark:focus {
+            border-color: var(--gold);
+        }
+        .btn-register {
+            margin-top: 15px;
+            margin-bottom: 25px;
+        }
+        .links {
+            text-align: center;
+            font-size: 14px;
+        }
+        .links a {
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        #mensagem-cadastro {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Conecta o aplicativo PWA -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Pinta a barra de bateria/sinal do celular do cliente de dourado -->
+    <meta name="theme-color" content="#d4af37">
+
+</head>
+<body>
+
+    <div class="header-text">
+        <img src="logo.png" alt="Bravus Barber" class="logo-bravus">
+        <h1>Junte-se à Bravus</h1>
+        <p>Crie sua conta para agendar seu horário.</p>
+    </div>
+
+    <div id="mensagem-cadastro"></div>
+
+    <div class="form-group">
+        <input type="text" id="nome" class="input-dark" placeholder="Seu nome completo">
+    </div>
+    <div class="form-group">
+        <input type="tel" id="telefone" class="input-dark" placeholder="Telefone (WhatsApp)">
+    </div>
+    <div class="form-group">
+        <input type="email" id="email" class="input-dark" placeholder="E-mail">
+    </div>
+    <div class="form-group">
+        <input type="password" id="senha" class="input-dark" placeholder="Crie uma senha">
+    </div>
+
+    <button class="btn-primary btn-register" onclick="criarConta()">Cadastrar</button>
+
+    <div class="links">
+        <a href="login.html">Já sou cliente • Fazer login</a>
+    </div>
+
+    <script>
+        async function criarConta() {
+            const nome = document.getElementById('nome').value;
+            const telefone = document.getElementById('telefone').value;
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            const mensagem = document.getElementById('mensagem-cadastro');
+
+            if (!nome || !telefone || !email || !senha) {
+                mensagem.style.color = 'var(--danger-red)';
+                mensagem.innerText = 'Preencha todos os campos.';
+                return;
+            }
+
+            mensagem.style.color = 'var(--gold)';
+            mensagem.innerText = 'Processando...';
+
+            try {
+                // 1. Cria o usuário no banco
+                const resUsuario = await fetch('https://bravus-api.onrender.com/api/usuarios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, senha, perfil: 'CLIENTE' })
+                });
+
+                if (!resUsuario.ok) {
+                    const erro = await resUsuario.json();
+                    throw new Error(erro.erro || 'Erro ao criar conta.');
+                }
+
+                // 2. Faz o login automático para pegar o Token
+                const resLogin = await fetch('https://bravus-api.onrender.com/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, senha })
+                });
+                
+                const dadosLogin = await resLogin.json();
+                localStorage.setItem('token', dadosLogin.token);
+
+                // 3. Cadastra os dados pessoais na tabela de clientes usando o Token
+                const resCliente = await fetch('https://bravus-api.onrender.com/api/clientes', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + dadosLogin.token
+                    },
+                    body: JSON.stringify({ nome, telefone })
+                });
+
+                if (resCliente.ok) {
+                    mensagem.style.color = 'var(--success-green)';
+                    mensagem.innerText = 'Conta criada com sucesso! Redirecionando...';
+                    setTimeout(() => {
+                        window.location.href = 'agendamento.html';
+                    }, 1500);
+                } else {
+                    throw new Error('Erro ao vincular perfil de cliente.');
+                }
+
+            } catch (erro) {
+                console.error(erro);
+                mensagem.style.color = 'var(--danger-red)';
+                mensagem.innerText = erro.message;
+            }
+        }
+    </script>
+</body>
+</html>

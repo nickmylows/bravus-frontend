@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <script>
+    // Blindagem de Rota - Executa antes da página renderizar
+    (function protegerPagina() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            // Usa 'replace' em vez de 'href' para não salvar o redirecionamento no histórico do botão "Voltar"
+            window.location.replace('login.html');
+        }
+    })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Importante para ajustar na tela do celular -->
+    <title>Barbearia - Meus Agendamentos</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css"> <!-- Importa as cores e o rodapé global -->
+    <style>
+        /* Estilos específicos para esta tela de agendamentos */
+        .header-page { padding: 30px 20px 20px 20px; }
+        .subtitle { color: var(--gold); font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+        .title { font-size: 32px; font-weight: 900; margin-top: 5px; line-height: 1.1; }
+
+        /* Sistema de Abas (Filtros) */
+        .tabs-container {
+            display: flex;
+            padding: 0 20px 20px 20px;
+            gap: 10px;
+        }
+        .tab-btn {
+            flex: 1;
+            background-color: var(--card-bg);
+            color: var(--text-gray);
+            border: 1px solid transparent;
+            padding: 10px 5px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            text-align: center;
+        }
+        .tab-btn.active {
+            background-color: rgba(212, 175, 55, 0.1);
+            color: var(--gold);
+            border-color: var(--gold);
+        }
+
+        .lista-agendamentos { padding: 0 20px 90px 20px; display: flex; flex-direction: column; gap: 20px; }
+
+        .card { background-color: var(--card-bg); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; }
+        .card-content { display: flex; gap: 15px; position: relative; }
+        
+        .data-box { 
+            background-color: rgba(212, 175, 55, 0.1); /* Fundo dourado translúcido */
+            color: var(--gold); 
+            border-radius: 12px; 
+            min-width: 65px; 
+            height: 80px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        }
+        .data-box .dia { font-size: 26px; font-weight: 900; line-height: 1; }
+        .data-box .mes { font-size: 14px; font-weight: 600; }
+
+        .info { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+        .info h3 { font-size: 16px; font-weight: 700; margin: 0; }
+        .info p { color: var(--text-gray); font-size: 14px; margin: 0; }
+        
+        .status { position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 700; }
+        .status.pendente { color: var(--gold); }
+        .status.concluido { color: var(--success-green); }
+        .status.cancelado { color: var(--danger-red); }
+
+        .card-footer { margin-top: 20px; padding-top: 15px; border-top: 1px solid #2a2a2a; }
+        .btn-cancelar-texto { color: var(--danger-red); background: none; border: none; font-weight: bold; font-size: 14px; cursor: pointer; padding: 0; }
+
+        /* Animação do Skeleton (Carregamento) */
+        @keyframes skeleton-pulse {
+            0% { background-color: #2a2a2c; }
+            50% { background-color: #3d3d40; }
+            100% { background-color: #2a2a2c; }
+        }
+        .skeleton-card {
+            background-color: var(--card-bg); 
+            border-radius: 12px; 
+            padding: 18px;
+            border-left: 4px solid #2a2a2c; 
+            margin-bottom: 15px;
+        }
+        .skeleton-line {
+            height: 14px; 
+            border-radius: 6px; 
+            animation: skeleton-pulse 1.5s infinite ease-in-out; 
+            margin-bottom: 10px;
+        }
+        .skeleton-line.title { width: 50%; height: 20px; margin-bottom: 15px; }
+        .skeleton-line.text { width: 90%; }
+        .skeleton-line.short { width: 40%; margin-bottom: 0; }
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Conecta o aplicativo PWA -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Pinta a barra de bateria/sinal do celular do cliente de dourado -->
+    <meta name="theme-color" content="#d4af37">
+</head>
+<body>
+
+    <div class="header-page">
+        <div class="subtitle">Sua Jornada</div>
+        <h1 class="title">Meus<br>agendamentos</h1>
+    </div>
+
+    <div id="mensagem-painel" style="padding: 0 20px;"></div>
+
+    <!-- NOVO: Botões de Filtro -->
+    <div class="tabs-container">
+        <button class="tab-btn active" onclick="mudarAba('PENDENTE', this)">Agendados</button>
+        <button class="tab-btn" onclick="mudarAba('CONCLUIDO', this)">Concluídos</button>
+        <button class="tab-btn" onclick="mudarAba('CANCELADO', this)">Cancelados</button>
+    </div>
+
+    <div class="lista-agendamentos" id="lista-agendamentos">
+        <!-- Cards inseridos dinamicamente pelo JS -->
+    </div>
+
+    <!-- O Menu Inferior Fixo -->
+    <nav class="bottom-nav">
+        <a href="inicio.html" class="nav-item">
+            <span class="nav-icon">🏠</span>
+            <span>Início</span>
+        </a>
+        <a href="servicos.html" class="nav-item">
+            <span class="nav-icon">✂️</span>
+            <span>Serviços</span>
+        </a>
+        <a href="painel-cliente.html" class="nav-item active">
+            <span class="nav-icon">📅</span>
+            <span>Agenda</span>
+        </a>
+        <a href="perfil.html" class="nav-item">
+            <span class="nav-icon">👤</span>
+            <span>Perfil</span>
+        </a>
+    </nav>
+
+    <script>
+        let todosAgendamentos = []; // Guarda o histórico completo na memória do navegador
+
+async function carregarHistorico() {
+    const tokenUsuario = localStorage.getItem('token');
+    const mensagem = document.getElementById('mensagem-painel');
+
+    if (!tokenUsuario) {
+        mensagem.style.color = 'var(--danger-red)';
+        mensagem.innerText = 'Faça o login para ver seus agendamentos.';
+        return;
+    }
+
+    try {
+        const resposta = await fetch('https://bravus-api.onrender.com/api/meus-agendamentos', {
+            headers: { 'Authorization': 'Bearer ' + tokenUsuario }
+        });
+
+        if (resposta.ok) {
+            // Salva os dados globalmente e renderiza a aba padrão (PENDENTE)
+            todosAgendamentos = await resposta.json();
+            renderizarLista('PENDENTE'); 
+        } else {
+            mensagem.style.color = 'var(--danger-red)';
+            mensagem.innerText = 'Erro ao carregar os dados.';
+        }
+    } catch (erro) {
+        console.error(erro);
+        mensagem.style.color = 'var(--danger-red)';
+        mensagem.innerText = 'Falha de comunicação com o servidor.';
+    }
+}
+
+// Controla a parte visual das abas e chama a renderização
+function mudarAba(statusFiltro, elementoClicado) {
+    // Remove a classe 'active' de todos os botões
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    // Adiciona apenas no botão clicado
+    elementoClicado.classList.add('active');
+    
+    // Atualiza a lista na tela
+    renderizarLista(statusFiltro);
+}
+
+// Filtra e desenha os cards na tela
+function renderizarLista(statusFiltro) {
+    const lista = document.getElementById('lista-agendamentos');
+    lista.innerHTML = ''; 
+
+    // Filtra o array principal de acordo com o status selecionado
+    const dadosFiltrados = todosAgendamentos.filter(item => item.status === statusFiltro);
+
+    if (dadosFiltrados.length === 0) {
+        // Injeta os Skeletons na lista do cliente
+            lista.innerHTML = `
+                <div class="skeleton-card">
+                    <div class="skeleton-line title"></div>
+                    <div class="skeleton-line text"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-line title"></div>
+                    <div class="skeleton-line text"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+            `;
+        return;
+    }
+
+    // Desenha os cards filtrados usando o seu layout original
+    dadosFiltrados.forEach(item => {
+        const dateObj = new Date(item.data_hora);
+        const diaNumero = String(dateObj.getDate()).padStart(2, '0');
+        const mesNumero = String(dateObj.getMonth() + 1).padStart(2, '0');
+        
+        const diasSemana = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
+        const meses = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+        
+        const nomeDia = diasSemana[dateObj.getDay()];
+        const nomeMes = meses[dateObj.getMonth()];
+        const horas = String(dateObj.getHours()).padStart(2, '0');
+        const minutos = String(dateObj.getMinutes()).padStart(2, '0');
+        
+        const textoDataHora = `${nomeDia}, ${diaNumero} de ${nomeMes} • ${horas}:${minutos}`;
+
+        let textoStatus = 'Pendente';
+        let classeStatus = 'pendente';
+        
+        if (item.status === 'CONCLUIDO') { textoStatus = 'Confirmado'; classeStatus = 'concluido'; }
+        if (item.status === 'CANCELADO') { textoStatus = 'Cancelado'; classeStatus = 'cancelado'; }
+
+        // Mantém a regra do botão de cancelar aparecer apenas se estiver pendente
+        let footerAcao = '';
+        if (item.status === 'PENDENTE') {
+            footerAcao = `
+                <div class="card-footer">
+                    <button class="btn-cancelar-texto" onclick="cancelarAgendamento(${item.id})">Cancelar agendamento</button>
+                </div>
+            `;
+        }
+
+        lista.innerHTML += `
+            <div class="card">
+                <div class="card-content">
+                    <div class="data-box">
+                        <span class="dia">${diaNumero}</span>
+                        <span class="mes">${mesNumero}</span>
+                    </div>
+                    <div class="info">
+                        <h3>${item.servico_realizado || item.servico}</h3>
+                        <p>${textoDataHora}</p>
+                        <p>${item.nome_profissional || item.barbeiro}</p>
+                    </div>
+                    <div class="status ${classeStatus}">${textoStatus}</div>
+                </div>
+                ${footerAcao}
+            </div>
+        `;
+    });
+}
+
+async function cancelarAgendamento(idAgendamento) {
+    // 1. Alerta de Confirmação
+    const confirmacao = await Swal.fire({
+        title: 'Cancelar horário?',
+        text: "Tem certeza que deseja desmarcar este agendamento?",
+        icon: 'warning',
+        showCancelButton: true,
+        background: 'var(--card-bg)',
+        color: 'var(--text-white)',
+        confirmButtonColor: 'var(--danger-red)',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sim, cancelar',
+        cancelButtonText: 'Manter horário'
+    });
+
+    if (!confirmacao.isConfirmed) return;
+
+    // 2. Comunicação com o Back-end
+    const token = localStorage.getItem('token');
+    try {
+        const resposta = await fetch(`https://bravus-api.onrender.com/api/meus-agendamentos/${idAgendamento}/cancelar`, {
+            method: 'PATCH',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token 
+            }
+        });
+
+        if (resposta.ok) {
+            // 3. Alerta de Sucesso
+            Swal.fire({
+                title: 'Cancelado!',
+                text: 'Seu agendamento foi desmarcado.',
+                icon: 'success',
+                background: 'var(--card-bg)',
+                color: 'var(--text-white)',
+                confirmButtonColor: 'var(--gold)',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            
+            // Chame a sua função que recarrega a lista da tela (ajuste o nome se o seu for diferente)
+            carregarAgendaCliente(); 
+        } else {
+            const dadosErro = await resposta.json();
+            // 4. Alerta de Erro
+            Swal.fire({
+                title: 'Ops!',
+                text: dadosErro.erro || 'Não foi possível cancelar o horário.',
+                icon: 'error',
+                background: 'var(--card-bg)',
+                color: 'var(--text-white)',
+                confirmButtonColor: 'var(--danger-red)'
+            });
+        }
+    } catch (erro) {
+        console.error("Erro ao cancelar:", erro);
+    }
+}
+
+window.onload = carregarHistorico;
+    </script>
+</body>
+</html>

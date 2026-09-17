@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <script>
+        // Blindagem de Rota
+        (function protegerPagina() {
+            const token = localStorage.getItem('token');
+            if (!token) window.location.replace('login.html');
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bravus Barber - Painel do Profissional</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { padding: 20px; padding-bottom: 90px; }
+        .header-title { color: var(--gold); text-align: center; font-size: 22px; margin-bottom: 25px; }
+
+        /* Dashboard Financeiro (Resumo Diário) */
+        .resumo-card {
+            background-color: var(--gold); color: #000; padding: 20px;
+            border-radius: 12px; margin-bottom: 15px; text-align: center;
+        }
+        .resumo-card h3 { font-size: 14px; margin-bottom: 5px; text-transform: uppercase; font-weight: 800; }
+        .resumo-card h2 { font-size: 32px; font-weight: 900; }
+        .resumo-detalhes { display: flex; justify-content: space-around; margin-top: 15px; font-size: 14px; font-weight: bold; }
+
+        .btn-relatorio {
+            background-color: var(--card-bg); border: 1px solid var(--gold); color: var(--gold);
+            width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;
+            margin-bottom: 25px; display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+
+        /* Sistema de Abas */
+        .tabs-container { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab-btn {
+            flex: 1; background-color: var(--card-bg); color: var(--text-gray);
+            border: 1px solid transparent; padding: 10px 5px; border-radius: 8px;
+            font-size: 13px; font-weight: bold; cursor: pointer; text-align: center; transition: 0.3s;
+        }
+        .tab-btn.active { background-color: rgba(212, 175, 55, 0.1); color: var(--gold); border-color: var(--gold); }
+
+        /* Cards de Agendamento */
+        .agenda-lista { display: flex; flex-direction: column; gap: 15px; }
+        .agendamento-card { background-color: var(--card-bg); border-radius: 12px; padding: 18px; border-left: 4px solid var(--gold); }
+        .agendamento-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; color: var(--text-gray); border-bottom: 1px solid #2a2a2c; padding-bottom: 8px; }
+        .cliente-nome { font-size: 18px; font-weight: bold; color: var(--text-white); margin-bottom: 5px; }
+        .servico-info { font-size: 15px; color: var(--text-gray); display: flex; justify-content: space-between; }
+        
+        .status-badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .status-pendente { background-color: rgba(212, 175, 55, 0.15); color: var(--gold); }
+        .status-concluido { background-color: rgba(0, 210, 106, 0.15); color: var(--success-green); }
+        
+        /* Botões de Ação do Card */
+        .card-actions { margin-top: 15px; padding-top: 15px; border-top: 1px solid #2a2a2c; }
+        .botoes-acao { display: flex; gap: 10px; }
+        .btn-cancelar { background-color: transparent; border: 1px solid var(--danger-red); color: var(--danger-red); padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 15px;}
+        .btn-cancelar:hover { background-color: var(--danger-red); color: #fff; }
+        .btn-concluir { background-color: transparent; border: 1px solid var(--success-green); color: var(--success-green); padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 15px;}
+        .btn-concluir:hover { background-color: var(--success-green); color: #000; }
+        .finalizado-txt { text-align: center; color: var(--success-green); font-size: 14px; font-weight: bold; display: block; }
+
+        /* Estilos do Modal de Relatório */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); z-index: 1000; justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: var(--card-bg); width: 100%; max-width: 400px; padding: 25px; border-radius: 12px; border-top: 4px solid var(--gold); position: relative; }
+        .btn-fechar { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-gray); font-size: 20px; cursor: pointer; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: var(--text-gray); font-size: 13px; }
+        .form-group input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background-color: var(--bg-color); color: var(--text-white); font-size: 15px; outline: none; }
+        .resultado-relatorio { margin-top: 15px; padding: 15px; background: var(--bg-color); border-radius: 8px; text-align: center; display: none; }
+
+        /* Animação do Skeleton (Carregamento) */
+        @keyframes skeleton-pulse {
+            0% { background-color: #2a2a2c; }
+            50% { background-color: #3d3d40; }
+            100% { background-color: #2a2a2c; }
+        }
+        .skeleton-card {
+            background-color: var(--card-bg); 
+            border-radius: 12px; 
+            padding: 18px;
+            border-left: 4px solid #2a2a2c; 
+            margin-bottom: 15px;
+        }
+        .skeleton-line {
+            height: 14px; 
+            border-radius: 6px; 
+            animation: skeleton-pulse 1.5s infinite ease-in-out; 
+            margin-bottom: 10px;
+        }
+        .skeleton-line.title { width: 50%; height: 20px; margin-bottom: 15px; }
+        .skeleton-line.text { width: 90%; }
+        .skeleton-line.short { width: 40%; margin-bottom: 0; }
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Conecta o aplicativo PWA -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Pinta a barra de bateria/sinal do celular do cliente de dourado -->
+    <meta name="theme-color" content="#d4af37">
+
+    
+</head>
+<body>
+
+    <h2 class="header-title">Minha Agenda</h2>
+    
+    <div class="resumo-card">
+        <h3>Receita do Dia</h3>
+        <h2 id="valor-receita">R$ 0,00</h2>
+        <div class="resumo-detalhes">
+            <span id="txt-atendimentos">0 Concluídos</span>
+            <span id="txt-pendentes">0 Pendentes</span>
+        </div>
+    </div>
+
+    <!-- Botão para Faturamento por Período -->
+    <button class="btn-relatorio" onclick="abrirModalRelatorio()">📊 Faturamento por Período</button>
+
+    <!-- Filtro de Abas -->
+    <div class="tabs-container">
+        <button class="tab-btn active" onclick="mudarAba('PENDENTE', this)">Agendados</button>
+        <button class="tab-btn" onclick="mudarAba('CONCLUIDO', this)">Concluídos</button>
+        <button class="tab-btn" onclick="mudarAba('CANCELADO', this)">Cancelados</button>
+    </div>
+
+    <!-- Lista de Agendamentos -->
+    <div class="agenda-lista" id="lista-agenda"></div>
+
+    <!-- Modal de Relatório por Período -->
+    <div class="modal-overlay" id="modal-relatorio">
+        <div class="modal-content">
+            <button class="btn-fechar" onclick="fecharModalRelatorio()">✖</button>
+            <h3 style="margin-bottom: 15px;">Gerar Relatório</h3>
+            
+            <div class="form-group">
+                <label>Data Inicial</label>
+                <input type="date" id="relatorio-inicio">
+            </div>
+            <div class="form-group">
+                <label>Data Final</label>
+                <input type="date" id="relatorio-fim">
+            </div>
+            
+            <button class="btn-concluir" style="border-color: var(--gold); color: var(--gold);" onclick="gerarRelatorioProfissional()">Buscar Faturamento</button>
+            
+            <div class="resultado-relatorio" id="resultado-relatorio">
+                <p style="color: var(--text-gray); font-size: 13px;">Total Faturado no Período:</p>
+                <h2 style="color: var(--success-green); margin: 5px 0;" id="txt-total-periodo">R$ 0,00</h2>
+                <p style="color: var(--gold); font-size: 12px; margin-bottom: 15px;" id="txt-qtd-periodo">0 serviços realizados</p>
+                
+                <!-- Área rolável para a lista de serviços -->
+                <div id="lista-detalhes-relatorio" style="text-align: left; max-height: 200px; overflow-y: auto; border-top: 1px dashed #333; padding-top: 10px;">
+                    <!-- Itens injetados via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menu Fixo -->
+    <div class="bottom-nav">
+        <a href="#" class="nav-item active"><span class="nav-icon">📅</span>Agenda</a>
+        <a href="#" class="nav-item" onclick="fazerLogout()"><span class="nav-icon">🚪</span>Sair</a>
+    </div>
+
+    <script>
+        let todosAgendamentos = [];
+
+        function fazerLogout() {
+        Swal.fire({
+        title: 'Sair da conta?',
+        text: "Você precisará fazer login novamente para acessar a agenda.",
+        icon: 'warning',
+        showCancelButton: true,
+        background: 'var(--card-bg)', // Usa as variáveis de cor que você já criou!
+        color: 'var(--text-white)',
+        confirmButtonColor: 'var(--danger-red)',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sim, sair',
+        cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        localStorage.removeItem('token');
+                        window.location.replace('login.html'); 
+                    }
+                });
+            }
+
+        async function carregarAgenda() {
+            const token = localStorage.getItem('token');
+            const container = document.getElementById('lista-agenda');
+
+            // Injeta 3 cards falsos pulsantes para simular o carregamento
+            container.innerHTML = `
+                <div class="skeleton-card">
+                    <div class="skeleton-line title"></div>
+                    <div class="skeleton-line text"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-line title"></div>
+                    <div class="skeleton-line text"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-line title"></div>
+                    <div class="skeleton-line text"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+            `;
+
+            try {
+                const resposta = await fetch('https://bravus-api.onrender.com/api/agenda-profissional', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const dados = await resposta.json();
+
+                if (resposta.ok) {
+                    todosAgendamentos = dados.relatorio;
+                    
+                    // Alimenta o Dashboard de Resumo APENAS COM DADOS DE HOJE
+                    let receitaTotal = 0, qtdConcluidos = 0, qtdPendentes = 0;
+                    
+                    const dataAtual = new Date();
+                    // Ajuste de fuso horário para bater com a data local do Brasil
+                    const hojeFmt = new Date(dataAtual.getTime() - (dataAtual.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+                    todosAgendamentos.forEach(item => {
+                        const dataAgendamento = item.data_hora.split('T')[0];
+
+                        // Soma no dashboard apenas se a data for exatamentente hoje
+                        if (dataAgendamento === hojeFmt) {
+                            if (item.status === 'CONCLUIDO') {
+                                receitaTotal += parseFloat(item.valor_receita);
+                                qtdConcluidos++;
+                            } else if (item.status === 'PENDENTE') {
+                                qtdPendentes++;
+                            }
+                        }
+                    });
+
+                    document.getElementById('valor-receita').innerText = `R$ ${receitaTotal.toFixed(2)}`;
+                    document.getElementById('txt-atendimentos').innerText = `${qtdConcluidos} Concluídos`;
+                    document.getElementById('txt-pendentes').innerText = `${qtdPendentes} Pendentes`;
+
+                    // Renderiza a aba padrão (PENDENTE)
+                    renderizarLista('PENDENTE');
+                }
+            } catch (erro) {
+                container.innerHTML = '<p style="text-align:center; color:var(--danger-red);">Erro de comunicação com o servidor.</p>';
+            }
+        }
+
+        function mudarAba(status, elementoClicado) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            elementoClicado.classList.add('active');
+            renderizarLista(status);
+        }
+
+        function renderizarLista(statusFiltro) {
+            const container = document.getElementById('lista-agenda');
+            container.innerHTML = '';
+            
+            const filtrados = todosAgendamentos.filter(item => item.status === statusFiltro);
+
+            if (filtrados.length === 0) {
+                container.innerHTML = `<p style="text-align:center; color:var(--text-gray);">Nenhum agendamento nesta categoria.</p>`;
+                return;
+            }
+
+            filtrados.forEach(item => {
+                const dataObj = new Date(item.data_hora);
+                const horaFmt = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
+                const dataFmt = dataObj.toLocaleDateString('pt-BR');
+                const valor = parseFloat(item.valor_receita);
+                
+                let badgeClass = '', acaoHtml = '';
+
+                if (item.status === 'CONCLUIDO') {
+                    badgeClass = 'status-concluido';
+                    acaoHtml = '<span class="finalizado-txt">✓ Serviço Finalizado</span>';
+                } else if (item.status === 'PENDENTE') {
+                    badgeClass = 'status-pendente';
+                    acaoHtml = `
+                        <div class="botoes-acao">
+                            <button class="btn-cancelar" onclick="atualizarStatus(${item.id}, 'CANCELADO')">Cancelar</button>
+                            <button class="btn-concluir" onclick="atualizarStatus(${item.id}, 'CONCLUIDO')">Concluir</button>
+                        </div>
+                    `;
+                } else {
+                    acaoHtml = '<span style="color:var(--danger-red); font-size:14px; display:block; text-align:center;">Cancelado</span>';
+                }
+
+                container.innerHTML += `
+                    <div class="agendamento-card">
+                        <div class="agendamento-header">
+                            <span>🗓️ ${dataFmt} às <strong>${horaFmt}</strong></span>
+                            <span class="status-badge ${badgeClass}">${item.status}</span>
+                        </div>
+                        <div>
+                            <div class="cliente-nome">${item.nome_cliente}</div>
+                            <div class="servico-info">
+                                <span>${item.servico_realizado}</span>
+                                <span><strong>R$ ${valor.toFixed(2)}</strong></span>
+                            </div>
+                        </div>
+                        <div class="card-actions">${acaoHtml}</div>
+                    </div>
+                `;
+            });
+        }
+
+        async function atualizarStatus(idAgendamento, novoStatus) {
+            // 1. Se for para cancelar, o SweetAlert pede confirmação primeiro
+            if (novoStatus === 'CANCELADO') {
+                const confirmacao = await Swal.fire({
+                    title: 'Cancelar agendamento?',
+                    text: "Esta ação vai liberar o horário na agenda.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-white)',
+                    confirmButtonColor: 'var(--danger-red)',
+                    cancelButtonColor: '#333',
+                    confirmButtonText: 'Sim, cancelar',
+                    cancelButtonText: 'Voltar'
+                });
+
+                // Se o barbeiro clicar em "Voltar", a função para aqui
+                if (!confirmacao.isConfirmed) return;
+            }
+
+            // 2. Se chegou aqui (ou se for CONCLUIR), manda para o back-end
+            const token = localStorage.getItem('token');
+            try {
+                const resposta = await fetch(`https://bravus-api.onrender.com/api/agendamentos/${idAgendamento}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ status: novoStatus })
+                });
+
+                if (resposta.ok) {
+                    // 3. AQUI ENTRA O ALERTA DE SUCESSO!
+                    Swal.fire({
+                        title: 'Sucesso!',
+                        text: novoStatus === 'CONCLUIDO' ? 'Serviço finalizado.' : 'Agendamento cancelado.',
+                        icon: 'success',
+                        background: 'var(--card-bg)',
+                        color: 'var(--text-white)',
+                        confirmButtonColor: 'var(--gold)',
+                        timer: 2000, // Fecha sozinho depois de 2 segundos
+                        showConfirmButton: false
+                    });
+                    
+                    carregarAgenda(); // Recarrega a lista
+                } else {
+                    // 4. AQUI ENTRA O ALERTA DE ERRO!
+                    Swal.fire({
+                        title: 'Ops!',
+                        text: 'Erro ao atualizar o status.',
+                        icon: 'error',
+                        background: 'var(--card-bg)',
+                        color: 'var(--text-white)',
+                        confirmButtonColor: 'var(--danger-red)'
+                    });
+                }
+            } catch (erro) {
+                console.error(erro);
+            }
+        }
+
+        window.onload = carregarAgenda;
+    </script>
+</body>
+</html>

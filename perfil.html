@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <script>
+    // Blindagem de Rota - Executa antes da página renderizar
+    (function protegerPagina() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.replace('login.html');
+        }
+    })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bravus Barber - Perfil</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <!-- Importação do SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .header-page { padding: 30px 20px 20px 20px; }
+        .subtitle { color: var(--gold); font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+        .title { font-size: 32px; font-weight: 900; margin-top: 5px; line-height: 1.1; }
+
+        .perfil-container { padding: 0 20px; display: flex; flex-direction: column; gap: 15px; padding-bottom: 100px;}
+
+        .card-perfil { 
+            background-color: var(--card-bg); border-radius: 16px; padding: 30px 20px; 
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        .avatar-grande {
+            background-color: rgba(212, 175, 55, 0.15); color: var(--gold);
+            width: 80px; height: 80px; border-radius: 25px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 32px; font-weight: bold; margin-bottom: 15px;
+        }
+        .nome-usuario { font-size: 24px; font-weight: 900; margin-bottom: 5px; }
+        .email-usuario { color: var(--text-gray); font-size: 14px; margin-bottom: 15px; }
+        .badge-cliente {
+            color: var(--gold); font-size: 12px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .btn-sair {
+            background-color: var(--card-bg); border: none; border-radius: 16px;
+            padding: 20px; width: 100%; display: flex; align-items: center; gap: 15px;
+            color: var(--danger-red); font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+        .btn-sair:active { background-color: #2a2a2c; }
+        .icone-sair { font-size: 20px; }
+        
+        /* Estilos do Modal de Edição */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); z-index: 1000;
+            justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-content {
+            background: var(--card-bg); width: 100%; max-width: 400px;
+            padding: 25px; border-radius: 16px; border-top: 4px solid var(--gold);
+            position: relative;
+        }
+        .btn-fechar {
+            position: absolute; top: 15px; right: 15px;
+            background: transparent; border: none; color: var(--text-gray);
+            font-size: 20px; cursor: pointer;
+        }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 5px; color: var(--text-gray); font-size: 13px; }
+        .form-group input {
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
+            background-color: var(--bg-color); color: var(--text-white); font-size: 15px; outline: none;
+        }
+        .form-group input:focus { border-color: var(--gold); }
+        .btn-editar-perfil {
+            background: transparent; border: 1px solid var(--gold); color: var(--gold);
+            border-radius: 12px; padding: 15px; width: 100%; font-size: 16px; font-weight: bold;
+            cursor: pointer; margin-top: 15px; transition: 0.3s;
+        }
+        .btn-editar-perfil:hover { background: var(--gold); color: #000; }
+    </style>
+    
+    <!-- Conecta o aplicativo PWA -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Pinta a barra de bateria/sinal do celular do cliente de dourado -->
+    <meta name="theme-color" content="#d4af37">
+
+</head>
+<body>
+
+    <div class="header-page">
+        <div class="subtitle">Conta</div>
+        <h1 class="title">Seu perfil</h1>
+    </div>
+
+    <div class="perfil-container">
+        <div class="card-perfil">
+            <div class="avatar-grande" id="perfil-avatar">-</div>
+            <div class="nome-usuario" id="perfil-nome">Carregando...</div>
+            <div class="email-usuario" id="perfil-email">Aguarde...</div>
+            <div class="badge-cliente">Cliente Bravus</div>
+        </div>
+
+        <!-- Botão de Editar -->
+        <button class="btn-editar-perfil" onclick="abrirModalEdicao()">✏️ Atualizar meus dados</button>
+
+        <!-- Botão de Sair -->
+        <button class="btn-sair" onclick="fazerLogout()" style="margin-top: 5px;">
+            <span class="icone-sair">🚪</span>
+            Sair da conta
+        </button>
+    </div>
+
+    <!-- Modal de Edição -->
+    <div class="modal-overlay" id="modal-edicao">
+        <div class="modal-content">
+            <button class="btn-fechar" onclick="fecharModalEdicao()">✖</button>
+            <h3 style="margin-bottom: 20px; text-align: center;">Editar Perfil</h3>
+            
+            <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" id="edit-nome">
+            </div>
+            <div class="form-group">
+                <label>E-mail de Acesso</label>
+                <input type="email" id="edit-email">
+            </div>
+            <div class="form-group">
+                <label>Telefone / WhatsApp</label>
+                <input type="tel" id="edit-telefone">
+            </div>
+            
+            <button class="btn-editar-perfil" style="background: var(--gold); color: #000; margin-top: 10px;" onclick="salvarEdicaoPerfil()">Salvar Alterações</button>
+        </div>
+    </div>
+    
+    <!-- Menu Inferior -->
+    <nav class="bottom-nav">
+        <a href="inicio.html" class="nav-item">
+            <span class="nav-icon">🏠</span>
+            <span>Início</span>
+        </a>
+        <a href="servicos.html" class="nav-item">
+            <span class="nav-icon">✂️</span>
+            <span>Serviços</span>
+        </a>
+        <a href="painel-cliente.html" class="nav-item">
+            <span class="nav-icon">📅</span>
+            <span>Agenda</span>
+        </a>
+        <a href="perfil.html" class="nav-item active">
+            <span class="nav-icon">👤</span>
+            <span>Perfil</span>
+        </a>
+    </nav>
+
+    <script>
+        let dadosGlobaisUsuario = {};
+
+        // --- FUNÇÃO DE SAIR (Com Confirmação Animada) ---
+        function fazerLogout() {
+            Swal.fire({
+                title: 'Sair da conta?',
+                text: "Você precisará fazer login novamente para acessar o aplicativo.",
+                icon: 'warning',
+                showCancelButton: true,
+                background: 'var(--card-bg)',
+                color: 'var(--text-white)',
+                confirmButtonColor: 'var(--danger-red)',
+                cancelButtonColor: '#333',
+                confirmButtonText: 'Sim, sair',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    localStorage.removeItem('token');
+                    window.location.replace('login.html'); 
+                }
+            });
+        }
+
+        // --- FUNÇÃO DE SALVAR EDIÇÃO (Com Alertas de Sucesso/Erro) ---
+        async function salvarEdicaoPerfil() {
+            const token = localStorage.getItem('token');
+            const nome = document.getElementById('edit-nome').value;
+            const email = document.getElementById('edit-email').value;
+            const telefone = document.getElementById('edit-telefone').value;
+
+            if (!nome || !email) {
+                Swal.fire({
+                    title: 'Atenção!',
+                    text: 'Nome e E-mail são obrigatórios.',
+                    icon: 'warning',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-white)',
+                    confirmButtonColor: 'var(--gold)'
+                });
+                return;
+            }
+
+            try {
+                const resposta = await fetch('https://bravus-api.onrender.com/api/meu-perfil', {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token 
+                    },
+                    body: JSON.stringify({ nome, email, telefone })
+                });
+
+                if (resposta.ok) {
+                    Swal.fire({
+                        title: 'Sucesso!',
+                        text: 'Seus dados foram atualizados.',
+                        icon: 'success',
+                        background: 'var(--card-bg)',
+                        color: 'var(--text-white)',
+                        confirmButtonColor: 'var(--gold)',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    
+                    fecharModalEdicao();
+                    carregarDadosPerfil(); 
+                } else {
+                    const erro = await resposta.json();
+                    Swal.fire({
+                        title: 'Ops!',
+                        text: erro.erro || 'Falha ao atualizar dados.',
+                        icon: 'error',
+                        background: 'var(--card-bg)',
+                        color: 'var(--text-white)',
+                        confirmButtonColor: 'var(--danger-red)'
+                    });
+                }
+            } catch (erro) {
+                Swal.fire({
+                    title: 'Erro!',
+                    text: 'Falha de conexão com o servidor.',
+                    icon: 'error',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-white)',
+                    confirmButtonColor: 'var(--danger-red)'
+                });
+            }
+        }
+
+        async function carregarDadosPerfil() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            try {
+                const resposta = await fetch('https://bravus-api.onrender.com/api/meu-perfil', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (resposta.ok) {
+                    const dados = await resposta.json();
+                    dadosGlobaisUsuario = dados;
+                    
+                    const primeiroNome = dados.nome.split(' ')[0];
+                    const inicial = primeiroNome.charAt(0).toUpperCase();
+
+                    document.getElementById('perfil-avatar').innerText = inicial;
+                    document.getElementById('perfil-nome').innerText = primeiroNome; 
+                    document.getElementById('perfil-email').innerText = dados.email;
+                }
+            } catch (erro) {
+                console.error("Erro ao carregar perfil:", erro);
+            }
+        }
+
+        function abrirModalEdicao() {
+            document.getElementById('edit-nome').value = dadosGlobaisUsuario.nome || '';
+            document.getElementById('edit-email').value = dadosGlobaisUsuario.email || '';
+            document.getElementById('edit-telefone').value = dadosGlobaisUsuario.telefone || '';
+            document.getElementById('modal-edicao').classList.add('active');
+        }
+
+        function fecharModalEdicao() {
+            document.getElementById('modal-edicao').classList.remove('active');
+        }
+
+        window.addEventListener('DOMContentLoaded', carregarDadosPerfil);
+    </script>
+</body>
+</html>

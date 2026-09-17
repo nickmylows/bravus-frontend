@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bravus Barber - Recuperar Senha</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header-text { margin-bottom: 30px; text-align: center; }
+        .header-text h1 { font-size: 28px; margin-bottom: 8px; }
+        .header-text p { color: var(--text-gray); font-size: 14px; }
+        
+        .form-group { margin-bottom: 15px; }
+        .input-dark {
+            width: 100%;
+            background-color: var(--card-bg);
+            border: 1px solid transparent;
+            color: var(--text-white);
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            outline: none;
+        }
+        .input-dark:focus { border-color: var(--gold); }
+        .links { text-align: center; margin-top: 20px; }
+        .links a { color: var(--gold); text-decoration: none; font-weight: 600; }
+        
+        /* Oculta o passo 2 inicialmente */
+        #passo-2 { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Conecta o aplicativo PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#d4af37">
+</head>
+<body>
+
+    <!-- Logo Adicionada -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <img src="logo.png" alt="Bravus Barber" class="logo-bravus" style="max-width: 120px;">
+    </div>
+
+    <div class="header-text">
+        <h1>Recuperar Senha</h1>
+        <p>Informe seu e-mail para redefinir o acesso.</p>
+    </div>
+
+    <!-- Passo 1: Solicitar Token -->
+    <div id="passo-1">
+        <div class="form-group">
+            <input type="email" id="email" class="input-dark" placeholder="E-mail cadastrado">
+        </div>
+        <button class="btn-primary" style="width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; background-color: var(--gold); color: #000; border: none; cursor: pointer;" onclick="solicitarRecuperacao()">Buscar Conta</button>
+    </div>
+
+    <!-- Passo 2: Redefinir Senha -->
+    <div id="passo-2">
+        <p style="color: var(--gold); margin-bottom: 15px; font-size: 13px; text-align: center;">
+            ⚠️ Em produção, você receberia um link no e-mail. Para este teste local, o sistema já liberou a troca abaixo:
+        </p>
+        <div class="form-group">
+            <input type="password" id="novaSenha" class="input-dark" placeholder="Digite a nova senha">
+        </div>
+        <button class="btn-primary" style="width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; background-color: var(--gold); color: #000; border: none; cursor: pointer;" onclick="salvarNovaSenha()">Atualizar Senha</button>
+    </div>
+
+    <div class="links">
+        <a href="login.html">Voltar para o Login</a>
+    </div>
+
+    <script>
+        let tokenTemporario = '';
+        let idUsuario = '';
+
+        async function solicitarRecuperacao() {
+            const email = document.getElementById('email').value;
+
+            if (!email) {
+                return Swal.fire('Atenção', 'Digite seu e-mail.', 'warning');
+            }
+
+            Swal.fire({
+                title: 'Buscando conta...',
+                allowOutsideClick: false,
+                background: 'var(--card-bg)',
+                color: 'var(--text-white)',
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const res = await fetch('https://bravus-api.onrender.com/api/esqueci-senha', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const dados = await res.json();
+
+                if (res.ok) {
+                    Swal.close();
+                    
+                    tokenTemporario = dados.token_recuperacao;
+                    idUsuario = dados.id_usuario;
+
+                    document.getElementById('passo-1').style.display = 'none';
+                    document.getElementById('passo-2').style.display = 'block';
+                } else {
+                    Swal.fire({
+                        title: 'Ops!',
+                        text: dados.erro,
+                        icon: 'error',
+                        background: 'var(--card-bg)',
+                        color: 'var(--text-white)',
+                        confirmButtonColor: 'var(--danger-red)'
+                    });
+                }
+            } catch (erro) {
+                Swal.fire('Erro!', 'Falha de conexão com o servidor.', 'error');
+            }
+        }
+
+        async function salvarNovaSenha() {
+            const novaSenha = document.getElementById('novaSenha').value;
+
+            if (!novaSenha) {
+                return Swal.fire('Atenção', 'Digite a nova senha.', 'warning');
+            }
+
+            Swal.fire({
+                title: 'Atualizando...',
+                allowOutsideClick: false,
+                background: 'var(--card-bg)',
+                color: 'var(--text-white)',
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const res = await fetch('https://bravus-api.onrender.com/api/redefinir-senha', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        id_usuario: idUsuario, 
+                        token: tokenTemporario, 
+                        novaSenha: novaSenha 
+                    })
+                });
+
+                const dados = await res.json();
+
+                if (res.ok) {
+                    Swal.fire({
+                        title: 'Sucesso!',
+                        text: 'Senha atualizada! Redirecionando...',
+                        icon: 'success',
+                        background: 'var(--card-bg)',
+                        color: 'var(--text-white)',
+                        showConfirmButton: false,
+                        timer: 2000
+                    }).then(() => {
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Ops!',
+                        text: dados.erro,
+                        icon: 'error',
+                        background: 'var(--card-bg)',
+                        color: 'var(--text-white)',
+                        confirmButtonColor: 'var(--danger-red)'
+                    });
+                }
+            } catch (erro) {
+                Swal.fire('Erro!', 'Falha ao atualizar senha.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

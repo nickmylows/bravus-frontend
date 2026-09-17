@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bravus Barber - Início</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Estilos específicos da Home */
+        .home-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 30px 20px 20px 20px; 
+        }
+        .welcome-label { 
+            color: var(--gold); font-size: 11px; font-weight: 800; 
+            letter-spacing: 1px; text-transform: uppercase; 
+        }
+        .user-name { 
+            font-size: 32px; font-weight: 900; margin-top: 5px; 
+        }
+        .user-avatar { 
+            width: 50px; height: 50px; background-color: rgba(212, 175, 55, 0.15); 
+            color: var(--gold); border-radius: 50%; display: flex; 
+            justify-content: center; align-items: center; 
+            font-size: 20px; font-weight: bold; 
+        }
+        
+        .experience-card { 
+            background-color: var(--card-bg); border-radius: 20px; 
+            padding: 30px 25px; margin: 0 20px; position: relative; overflow: hidden; 
+        }
+        .exp-subtitle { 
+            color: var(--gold); font-size: 11px; font-weight: 800; 
+            letter-spacing: 1.5px; margin-bottom: 15px; text-transform: uppercase;
+        }
+        .exp-title { 
+            font-size: 36px; font-weight: 900; line-height: 1.1; 
+            margin-bottom: 30px; position: relative; z-index: 2; 
+        }
+        .exp-icon { 
+            position: absolute; right: -20px; top: 40px; font-size: 130px; 
+            opacity: 0.05; transform: rotate(-20deg); z-index: 1; 
+        }
+        .btn-agendar { 
+            width: max-content; padding: 12px 25px; border-radius: 12px; 
+            font-size: 16px; display: flex; align-items: center; gap: 10px; 
+            position: relative; z-index: 2; border: none; font-weight: bold;
+            background-color: var(--gold); color: #000; cursor: pointer;
+        }
+        
+        .next-appointment-card { 
+            background-color: var(--card-bg); border-radius: 16px; padding: 20px; 
+            margin: 20px; border-left: 4px solid var(--gold); cursor: pointer; 
+            display: none; /* Fica oculto até o JS confirmar que existe um agendamento */
+        }
+        .next-label { 
+            color: var(--gold); font-size: 11px; font-weight: 800; 
+            letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase;
+        }
+        .next-info { 
+            display: flex; justify-content: space-between; align-items: center; 
+        }
+        .next-info h3 { font-size: 18px; font-weight: 700; margin: 0; }
+        .next-info p { color: var(--text-gray); font-size: 14px; margin-top: 5px; }
+        .arrow { color: var(--gold); font-size: 24px; font-weight: bold; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Conecta o aplicativo PWA -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Pinta a barra de bateria/sinal do celular do cliente de dourado -->
+    <meta name="theme-color" content="#d4af37">
+
+</head>
+<body>
+
+    <!-- Logo isolada no topo da tela -->
+    <div style="padding-top: 30px; text-align: center;">
+        <img src="logo.png" alt="Bravus Barber" class="logo-bravus" style="margin: 0 auto; max-width: 120px;">
+    </div>
+
+    <!-- Cabeçalho original intacto (Texto + Avatar) -->
+    <header class="home-header" style="padding-top: 10px;">
+        <div class="user-info">
+            <span class="welcome-label">Bem-vindo de volta</span>
+            <h2><span id="nome-cliente">Carregando...</span></h2>
+        </div>
+        <div class="user-avatar">N</div>
+    </header>
+
+    <div class="experience-card">
+        <div class="exp-subtitle">The Bravus Experience</div>
+        <h2 class="exp-title">Seu estilo.<br>Nossa<br>assinatura.</h2>
+        <div class="exp-icon">✂️</div>
+        <button class="btn-agendar" onclick="window.location.href='servicos.html'">
+            Agendar agora →
+        </button>
+    </div>
+
+    <!-- Card de Próximo Agendamento Dinâmico -->
+    <div class="next-appointment-card" id="card-proximo-agendamento" onclick="window.location.href='painel-cliente.html'">
+        <div class="next-label">Próximo Agendamento</div>
+        <div class="next-info">
+            <div>
+                <h3 id="proximo-servico-nome">Carregando...</h3>
+                <p id="proximo-servico-data"></p>
+            </div>
+            <span class="arrow">›</span>
+        </div>
+    </div>
+
+    <!-- Menu Inferior -->
+    <nav class="bottom-nav">
+        <a href="inicio.html" class="nav-item active">
+            <span class="nav-icon">🏠</span>
+            <span>Início</span>
+        </a>
+        <a href="servicos.html" class="nav-item">
+            <span class="nav-icon">✂️</span>
+            <span>Serviços</span>
+        </a>
+        <a href="painel-cliente.html" class="nav-item">
+            <span class="nav-icon">📅</span>
+            <span>Agenda</span>
+        </a>
+        <a href="perfil.html" class="nav-item">
+            <span class="nav-icon">👤</span>
+            <span>Perfil</span>
+        </a>
+    </nav>
+
+    <script>
+        async function carregarNomeUsuario() {
+    const token = localStorage.getItem('token');
+    
+    if (!token) return;
+
+    try {
+        const resposta = await fetch('https://bravus-api.onrender.com/api/meu-perfil', {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        });
+
+        if (resposta.ok) {
+            const dados = await resposta.json();
+            
+            // 1. Pega o nome completo vindo do banco e divide usando os espaços
+            const partesDoNome = dados.nome.split(' ');
+            
+            // 2. Isola apenas a primeira palavra (o primeiro nome)
+            const primeiroNome = partesDoNome[0];
+            
+            // 3. Captura a primeira letra e força para maiúscula
+            const inicial = primeiroNome.charAt(0).toUpperCase();
+
+            // Atualiza a saudação na tela (Ex: de "Nikolas Ribeiro" para "Nikolas")
+            const elementoNome = document.getElementById('nome-cliente');
+            if (elementoNome) {
+                elementoNome.innerText = primeiroNome;
+            }
+
+            // Atualiza a div do avatar com a primeira letra (Ex: "N")
+            const elementoAvatar = document.querySelector('.user-avatar');
+            if (elementoAvatar) {
+                elementoAvatar.innerText = inicial;
+            }
+        }
+    } catch (erro) {
+        console.error("Erro ao buscar dados do usuário:", erro);
+        
+        // Fallback (plano B) caso o servidor falhe
+        const elementoNome = document.getElementById('nome-cliente');
+        if (elementoNome) elementoNome.innerText = "Cliente";
+        
+        const elementoAvatar = document.querySelector('.user-avatar');
+        if (elementoAvatar) elementoAvatar.innerText = "C";
+    }
+}
+        // Garanta que a função seja chamada assim que a página abrir
+        window.addEventListener('DOMContentLoaded', () => {
+            carregarNomeUsuario();
+        });    
+
+        async function carregarProximoAgendamento() {
+            const tokenUsuario = localStorage.getItem('token');
+            if (!tokenUsuario) {
+                window.location.href = 'login.html'; // Proteção de rota
+                return;
+            }
+
+            try {
+                const resposta = await fetch('https://bravus-api.onrender.com/api/meus-agendamentos', {
+                    headers: { 'Authorization': 'Bearer ' + tokenUsuario }
+                });
+
+                if (resposta.ok) {
+                    const agendamentos = await resposta.json();
+                    
+                    // Filtra apenas os pendentes e pega o mais próximo
+                    const pendentes = agendamentos.filter(a => a.status === 'PENDENTE');
+                    
+                    if (pendentes.length > 0) {
+                        const proximo = pendentes[0]; // Como a API já ordena, o índice 0 é o próximo
+                        
+                        const dataObj = new Date(proximo.data_hora);
+                        const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+                        const horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                        document.getElementById('proximo-servico-nome').innerText = proximo.servico_realizado;
+                        document.getElementById('proximo-servico-data').innerText = `${dataFormatada} às ${horaFormatada} com ${proximo.nome_profissional}`;
+                        
+                        // Exibe o card que estava oculto
+                        document.getElementById('card-proximo-agendamento').style.display = 'block';
+                    }
+                }
+            } catch (erro) {
+                console.error("Erro ao carregar o próximo agendamento:", erro);
+            }
+        }
+
+        window.onload = carregarProximoAgendamento;
+    </script>
+</body>
+</html>

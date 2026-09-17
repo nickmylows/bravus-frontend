@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <script>
+    // Blindagem de Rota - Executa antes da página renderizar
+    (function protegerPagina() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            // Usa 'replace' em vez de 'href' para não salvar o redirecionamento no histórico do botão "Voltar"
+            window.location.replace('login.html');
+        }
+    })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barbearia - Agendar Horário</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <!-- Conecta seu arquivo de estilos global -->
+    <link rel="stylesheet" href="style.css"> 
+    <style>
+        /* Estilos específicos para a tela de agendamento usando suas variáveis */
+        body {
+            padding: 20px;
+            padding-bottom: 90px; /* Evita que o menu sobreponha o final da tela */
+        }
+
+        .header-title {
+            text-align: center;
+            font-size: 22px;
+            margin-bottom: 25px;
+            color: var(--gold); /*[cite: 4] */
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            background-color: var(--card-bg); /*[cite: 4] */
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--text-gray); /*[cite: 4] */
+            font-size: 14px;
+        }
+
+        select, input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background-color: var(--bg-color); /*[cite: 4] */
+            color: var(--text-white); /*[cite: 4] */
+            font-size: 16px;
+            outline: none;
+        }
+
+        select:focus, input[type="date"]:focus {
+            border-color: var(--gold); /*[cite: 4] */
+        }
+
+        /* Grade de horários */
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .time-btn {
+            background-color: var(--bg-color); /*[cite: 4] */
+            color: var(--text-white); /*[cite: 4] */
+            border: 1px solid #333;
+            padding: 12px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        /* Horário selecionado pelo usuário */
+        .time-btn.selected {
+            background-color: var(--gold); /*[cite: 4] */
+            color: #000;
+            border-color: var(--gold); /*[cite: 4] */
+            font-weight: bold;
+        }
+
+        /* Horário já reservado no banco */
+        .time-btn:disabled {
+            background-color: #2a2a2c;
+            color: #555;
+            border-color: #2a2a2c;
+            text-decoration: line-through;
+            cursor: not-allowed;
+        }
+
+        #mensagem-agendamento {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Conecta o aplicativo PWA -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Pinta a barra de bateria/sinal do celular do cliente de dourado -->
+    <meta name="theme-color" content="#d4af37">
+
+
+</head>
+<body>
+    
+    <h2 class="header-title">Novo Agendamento</h2>
+    
+    <div class="form-group">
+        <label>Escolha o Profissional:</label>
+        <select id="select-profissional" onchange="atualizarHorarios()">
+            <option value="">Carregando...</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Escolha o Serviço:</label>
+        <select id="select-servico">
+            <option value="">Carregando...</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Data do Atendimento:</label>
+        <input type="date" id="dataEscolhida" onchange="atualizarHorarios()">
+    </div>
+
+    <div class="form-group" id="container-horarios" style="display: none;">
+        <label>Horários Disponíveis:</label>
+        <div class="time-grid" id="grid-horarios">
+            <!-- Botões gerados pelo JavaScript -->
+        </div>
+    </div>
+    
+    <!-- Utilizando a classe global de botão do style.css -->
+    <button class="btn-primary" onclick="confirmarReserva()">Confirmar Reserva</button> <!--[cite: 4] -->
+
+    <p id="mensagem-agendamento"></p>
+
+    <!-- Exemplo de como a Navbar ficaria na tela -->
+    <nav class="bottom-nav">
+        <a href="inicio.html" class="nav-item">
+            <span class="nav-icon">🏠</span>
+            <span>Início</span>
+        </a>
+        <a href="servicos.html" class="nav-item">
+            <span class="nav-icon">✂️</span>
+            <span>Serviços</span>
+        </a>
+        <a href="painel-cliente.html" class="nav-item active">
+            <span class="nav-icon">📅</span>
+            <span>Agenda</span>
+        </a>
+        <a href="perfil.html" class="nav-item">
+            <span class="nav-icon">👤</span>
+            <span>Perfil</span>
+        </a>
+    </nav>
+
+    <script>
+        // Lista padrão de horários de funcionamento da barbearia
+        const HORARIOS_FUNCIONAMENTO = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
+        let horarioSelecionado = null;
+
+        window.onload = async () => {
+            await carregarProfissionais();
+            await carregarServicos();
+            
+            // Define a data mínima de agendamento como o dia de hoje
+            const inputData = document.getElementById('dataEscolhida');
+            const hoje = new Date().toISOString().split('T')[0];
+            inputData.min = hoje;
+        };
+
+        async function carregarProfissionais() {
+            try {
+                const resposta = await fetch('https://bravus-api.onrender.com/api/profissionais');
+                const profissionais = await resposta.json();
+                const select = document.getElementById('select-profissional');
+                
+                select.innerHTML = '<option value="">Selecione um barbeiro</option>';
+                profissionais.forEach(prof => {
+                    select.innerHTML += `<option value="${prof.id}">${prof.nome} (${prof.especialidade})</option>`;
+                });
+            } catch (erro) {
+                console.error("Erro ao buscar profissionais:", erro);
+            }
+        }
+
+        async function carregarServicos() {
+            try {
+                const resposta = await fetch('https://bravus-api.onrender.com/api/servicos');
+                const servicos = await resposta.json();
+                const select = document.getElementById('select-servico');
+                
+                select.innerHTML = '<option value="">Selecione um serviço</option>';
+                servicos.forEach(servico => {
+                    select.innerHTML += `<option value="${servico.id}">${servico.nome} - R$ ${servico.preco}</option>`;
+                });
+            } catch (erro) {
+                console.error("Erro ao buscar serviços:", erro);
+            }
+        }
+
+        // Função crucial para listar e bloquear horários
+        async function atualizarHorarios() {
+            const idProfissional = document.getElementById('select-profissional').value;
+            const dataEscolhida = document.getElementById('dataEscolhida').value; //
+            const container = document.getElementById('container-horarios');
+            const grid = document.getElementById('grid-horarios');
+
+            horarioSelecionado = null; // Reseta a seleção se mudar o dia ou barbeiro[cite: 5]
+
+            if (!idProfissional || !dataEscolhida) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'block';
+            grid.innerHTML = '<p style="color: var(--text-gray); grid-column: span 3; text-align: center;">Carregando horários...</p>';
+
+            try {
+                // Consulta o back-end para saber o que já está bloqueado
+                const resposta = await fetch(`https://bravus-api.onrender.com/api/horarios-ocupados?id_profissional=${idProfissional}&data=${dataEscolhida}`); //[cite: 5]
+                const horariosBloqueados = await resposta.json();
+
+                grid.innerHTML = ''; // Limpa o aviso de carregando[cite: 5]
+
+                // Captura o momento exato em que o cliente está abrindo o calendário
+                const dataAtual = new Date();
+                
+                // Ajusta o fuso horário para garantir que o formato bata com o dia local (YYYY-MM-DD)
+                const hojeFmt = new Date(dataAtual.getTime() - (dataAtual.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                const horaAgora = dataAtual.getHours();
+                const minutoAgora = dataAtual.getMinutes();
+
+                HORARIOS_FUNCIONAMENTO.forEach(horario => {
+                    const btn = document.createElement('button'); //[cite: 5]
+                    btn.className = 'time-btn';
+                    btn.innerText = horario;
+
+                    // 1. Verifica se o horário atual da grade já expirou no dia de hoje
+                    let horarioExpirado = false;
+                    if (dataEscolhida === hojeFmt) {
+                        const [horaSlot, minutoSlot] = horario.split(':').map(Number);
+                        
+                        // Trava se a hora já passou, ou se está na mesma hora mas o minuto já passou
+                        if (horaSlot < horaAgora || (horaSlot === horaAgora && minutoSlot <= minutoAgora)) {
+                            horarioExpirado = true;
+                        }
+                    }
+
+                    // 2. Aplica as regras visuais nos botões
+                    if (horariosBloqueados.includes(horario)) {
+                        // Horário já reservado no banco de dados[cite: 5]
+                        btn.disabled = true;
+                    } else if (horarioExpirado) {
+                        // Horário passado (Esgotado)
+                        btn.disabled = true;
+                        btn.style.opacity = '0.4';
+                        btn.innerText += ' (Esgotado)';
+                    } else {
+                        // Horário livre
+                        btn.onclick = () => selecionarHorario(btn, horario); //[cite: 5]
+                    }
+
+                    grid.appendChild(btn); //[cite: 5]
+                });
+
+            } catch (erro) {
+                console.error("Erro ao carregar disponibilidade:", erro); //[cite: 5]
+                grid.innerHTML = '<p style="color: var(--danger-red); grid-column: span 3; text-align: center;">Erro ao carregar disponibilidade.</p>';
+            }
+        }
+
+        function selecionarHorario(botaoClicado, horario) {
+            // Remove a classe "selected" de todos os botões
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('selected'));
+            
+            // Adiciona a classe visual ao botão atual e salva o valor
+            botaoClicado.classList.add('selected');
+            horarioSelecionado = horario;
+        }
+
+        async function confirmarReserva() {
+            const idProfissional = document.getElementById('select-profissional').value;
+            const idServico = document.getElementById('select-servico').value;
+            const dataEscolhida = document.getElementById('dataEscolhida').value;
+            const mensagem = document.getElementById('mensagem-agendamento');
+            
+            const tokenUsuario = localStorage.getItem('token');
+
+            if (!tokenUsuario) {
+                mensagem.style.color = 'var(--danger-red)'; //[cite: 4]
+                mensagem.innerText = 'Acesso negado: Faça o login primeiro.';
+                return;
+            }
+
+            if (!idProfissional || !idServico || !dataEscolhida || !horarioSelecionado) {
+                mensagem.style.color = 'var(--danger-red)'; //[cite: 4]
+                mensagem.innerText = 'Por favor, preencha todos os campos e selecione um horário.';
+                return;
+            }
+
+            // Junta a data limpa com o horário clicado na grade para enviar ao back-end
+            const dataFormatada = `${dataEscolhida} ${horarioSelecionado}:00`;
+
+            try {
+                const resposta = await fetch('https://bravus-api.onrender.com/api/agendamentos', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + tokenUsuario 
+                    },
+                    body: JSON.stringify({
+                        id_profissional: idProfissional, 
+                        id_servico: idServico,      
+                        data_hora: dataFormatada
+                    })
+                });
+
+                const dados = await resposta.json();
+
+                if (resposta.ok) {
+                    mensagem.style.color = 'var(--success-green)'; //[cite: 4]
+                    mensagem.innerText = 'Horário reservado com sucesso!';
+                    
+                    // Atualiza a grade para bloquear imediatamente o horário recém-comprado
+                    atualizarHorarios(); 
+                } else {
+                    mensagem.style.color = 'var(--danger-red)'; //[cite: 4]
+                    mensagem.innerText = dados.erro || 'Falha ao reservar horário.';
+                }
+            } catch (erro) {
+                console.error(erro);
+                mensagem.style.color = 'var(--danger-red)'; //[cite: 4]
+                mensagem.innerText = 'Erro ao conectar com o servidor.';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bravus Barber - Login</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 0 20px;
+            padding-bottom: 0; /* Remove o espaço do menu nesta tela */
+        }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        .icon-box {
+            background-color: rgba(212, 175, 55, 0.1);
+            color: var(--gold);
+            width: 70px;
+            height: 70px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 15px auto;
+        }
+        .brand-name {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            margin-bottom: 5px;
+        }
+        .brand-subtitle {
+            color: var(--gold);
+            font-size: 11px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .welcome-text {
+            margin-bottom: 30px;
+        }
+        .welcome-text h1 {
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .welcome-text p {
+            color: var(--text-gray);
+            font-size: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .input-dark {
+            width: 100%;
+            background-color: var(--card-bg);
+            border: 1px solid transparent;
+            color: var(--text-white);
+            padding: 18px 15px;
+            border-radius: 12px;
+            font-size: 15px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .input-dark::placeholder {
+            color: var(--text-gray);
+        }
+        .input-dark:focus {
+            border-color: var(--gold);
+        }
+        .btn-login {
+            margin-top: 10px;
+            margin-bottom: 25px;
+        }
+        .links {
+            text-align: center;
+            font-size: 14px;
+        }
+        .links a {
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        #mensagem-login {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Conecta o aplicativo PWA -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Pinta a barra de bateria/sinal do celular do cliente de dourado -->
+    <meta name="theme-color" content="#d4af37">
+</head>
+<body>
+
+    <div class="logo-container" style="text-align: center; margin-bottom: 20px;">
+        <img src="logo.png" alt="Bravus Barber" class="logo-bravus">
+    </div>
+
+    <div class="welcome-text">
+        <h1>Bem-vindo de volta</h1>
+        <p>Seu próximo visual começa aqui.</p>
+    </div>
+
+    <div id="mensagem-login"></div>
+
+    <div class="form-group">
+        <input type="email" id="email" class="input-dark" placeholder="E-mail ou telefone">
+    </div>
+        <div class="form-group password-container">
+            <input type="password" id="senha" class="input-dark" placeholder="Senha">
+             <button type="button" id="toggle-senha" class="toggle-icon" onclick="alternarSenha()" tabindex="-1">👁️</button>
+        </div>
+
+    <button class="btn-primary btn-login" onclick="fazerLogin()">Entrar</button>
+
+    <div class="links">
+        <a href="cadastro.html">Ainda não sou cliente • Criar conta</a>
+    </div>
+
+    <div class="links">
+        <a href="esqueci-senha.html">Esqueci minha senha - Recuperar conta</a>
+    </div>
+
+    <script>
+        // Função para mostrar/ocultar a senha
+    function alternarSenha() {
+    const inputSenha = document.getElementById('senha');
+    const icone = document.getElementById('toggle-senha');
+    
+    if (inputSenha.type === 'password') {
+        inputSenha.type = 'text';
+        icone.innerText = '🙈'; // Muda para o ícone de olho fechado
+    } else {
+        inputSenha.type = 'password';
+        icone.innerText = '👁️'; // Volta para o ícone de olho aberto
+    }
+    }
+
+        // Captura a tecla Enter em qualquer lugar da tela e dispara o login
+    document.addEventListener('keypress', function(evento) {
+    if (evento.key === 'Enter') {
+        // Evita que o Enter recarregue a página caso o foco esteja em algum botão
+        evento.preventDefault(); 
+        fazerLogin();
+    }
+    });
+        async function fazerLogin() {
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            const mensagem = document.getElementById('mensagem-login');
+
+            if (!email || !senha) {
+                mensagem.style.color = 'var(--danger-red)';
+                mensagem.innerText = 'Preencha todos os campos.';
+                return;
+            }
+
+            try {
+                const resposta = await fetch('https://bravus-api.onrender.com/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, senha })
+                });
+
+                const dados = await resposta.json();
+
+                if (resposta.ok) {
+                    localStorage.setItem('token', dados.token); 
+
+                    // Sistema de roteamento dinâmico baseado na resposta da API
+                    if (dados.perfil === 'ADMIN') {
+                        window.location.href = 'painel-admin.html';
+                    } else if (dados.perfil === 'PROFISSIONAL') {
+                        window.location.href = 'painel-barbeiro.html';
+                    } else {
+                        // Se for CLIENTE, vai para o agendamento
+                        window.location.href = 'inicio.html'; 
+                    }
+                } else {
+                    mensagem.style.color = 'var(--danger-red)';
+                    mensagem.innerText = dados.erro || 'Falha na autenticação.';
+                }
+            } catch (erro) {
+                console.error(erro);
+                mensagem.style.color = 'var(--danger-red)';
+                mensagem.innerText = 'Erro ao conectar com o servidor.';
+            }
+        }
+    </script>
+</body>
+</html>
