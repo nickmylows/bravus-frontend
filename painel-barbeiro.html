@@ -375,6 +375,26 @@
             }
         }
 
+        function abrirModalRelatorio() {
+    Swal.fire({
+        title: 'Gerar Relatório',
+        html: `
+            <input type="date" id="dataInicio" class="swal2-input">
+            <input type="date" id="dataFim" class="swal2-input">
+        `,
+        confirmButtonText: 'Buscar Dados',
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const inicio = document.getElementById('dataInicio').value;
+            const fim = document.getElementById('dataFim').value;
+            // Aqui você chama a função que faz o fetch para a rota /api/barbeiro/relatorios
+            console.log("Buscando dados de:", inicio, "até", fim);
+        }
+    });
+}
+
         window.onload = carregarAgenda;
     </script>
 </body>
