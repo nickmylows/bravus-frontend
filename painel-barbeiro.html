@@ -375,24 +375,93 @@
             }
         }
 
-        function abrirModalRelatorio() {
+        // 1. Função que abre o calendário customizado
+function abrirModalRelatorio() {
     Swal.fire({
         title: 'Gerar Relatório',
         html: `
-            <input type="date" id="dataInicio" class="swal2-input">
-            <input type="date" id="dataFim" class="swal2-input">
+            <div style="display: flex; flex-direction: column; gap: 10px; text-align: left;">
+                <label style="color: #ccc; font-size: 14px;">Data Inicial:</label>
+                <input type="date" id="dataInicio" class="swal2-input" style="margin: 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
+                
+                <label style="color: #ccc; font-size: 14px; margin-top: 10px;">Data Final:</label>
+                <input type="date" id="dataFim" class="swal2-input" style="margin: 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
+            </div>
         `,
+        background: '#1a1a1a', // Fundo escuro do modal
+        color: '#ffffff',      // Cor do título e textos
         confirmButtonText: 'Buscar Dados',
+        confirmButtonColor: '#d4af37', // Dourado padrão (altere para a cor principal do seu CSS)
         showCancelButton: true,
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
+        cancelButtonColor: '#d33',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
             const inicio = document.getElementById('dataInicio').value;
             const fim = document.getElementById('dataFim').value;
-            // Aqui você chama a função que faz o fetch para a rota /api/barbeiro/relatorios
-            console.log("Buscando dados de:", inicio, "até", fim);
+            if (!inicio || !fim) {
+                Swal.showValidationMessage('Por favor, selecione as duas datas.');
+                return false;
+            }
+            return { inicio, fim };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Quando o usuário clica em buscar, disparamos a comunicação com o Render
+            processarRelatorioBarbeiro(result.value.inicio, result.value.fim);
         }
     });
+}
+
+// 2. Função que busca os dados no banco e exibe o resultado
+async function processarRelatorioBarbeiro(dataInicio, dataFim) {
+    // Tela de carregamento enquanto o Render processa
+    Swal.fire({
+        title: 'Buscando...',
+        text: 'Calculando seu faturamento.',
+        background: '#1a1a1a',
+        color: '#fff',
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        // Recupera o crachá de segurança gerado no login
+        const token = localStorage.getItem('token'); 
+        
+        const resposta = await fetch(`https://bravus-api.onrender.com/api/barbeiro/relatorios?data_inicio=${dataInicio}&data_fim=${dataFim}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const dados = await resposta.json();
+
+        if (!resposta.ok) throw new Error(dados.erro || 'Erro ao consultar servidor.');
+
+        // Exibe o relatório financeiro com a mesma estilização escura
+        Swal.fire({
+            title: 'Desempenho do Período',
+            html: `
+                <h2 style="color: #28a745; margin: 10px 0;">R$ ${dados.total_faturado.toFixed(2)}</h2>
+                <p style="color: #ccc; font-size: 16px;">Serviços concluídos: <strong>${dados.quantidade}</strong></p>
+            `,
+            icon: 'success',
+            background: '#1a1a1a',
+            color: '#fff',
+            confirmButtonColor: '#d4af37',
+            confirmButtonText: 'Fechar'
+        });
+
+    } catch (erro) {
+        Swal.fire({
+            title: 'Erro na Busca',
+            text: erro.message,
+            icon: 'error',
+            background: '#1a1a1a',
+            color: '#fff',
+            confirmButtonColor: '#d4af37'
+        });
+    }
 }
 
         window.onload = carregarAgenda;
