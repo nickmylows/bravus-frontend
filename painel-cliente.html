@@ -308,7 +308,7 @@ async function cancelarAgendamento(idAgendamento) {
             });
             
             // Chame a sua função que recarrega a lista da tela (ajuste o nome se o seu for diferente)
-            carregarAgendaCliente(); 
+            carregarHistorico(); 
         } else {
             const dadosErro = await resposta.json();
             // 4. Alerta de Erro
