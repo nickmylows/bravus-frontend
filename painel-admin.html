@@ -345,10 +345,9 @@
         }
 
         function exportarPDF(event) {
-            // 1. Trava o comportamento padrão do navegador (impede o refresh)
+            // Trava o comportamento padrão do navegador
             if (event) event.preventDefault();
             
-            // Exibe o aviso de carregamento para o usuário não clicar duas vezes
             Swal.fire({
                 title: 'Gerando documento...',
                 text: 'Isso pode levar alguns segundos.',
@@ -360,7 +359,6 @@
                 }
             });
 
-            // 2. Coleta o nome do barbeiro com segurança (evitando erro de undefined)
             const select = document.getElementById('filtro-barbeiro');
             let nomeProf = "Equipe";
             try {
@@ -371,27 +369,35 @@
 
             const elemento = document.getElementById('relatorio-print');
             
+            // Força a cor de fundo direto na div para anular o CSS externo na hora da foto
+            elemento.style.backgroundColor = '#121214';
+            elemento.style.border = 'none';
+            
             const opcoes = {
                 margin:       15,
                 filename:     `Resultado_Bravus_${nomeProf}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, backgroundColor: '#121214' }, // Removido CORS estrito para rodar melhor localmente
+                html2canvas:  { 
+                    scale: 2, 
+                    backgroundColor: '#121214',
+                    useCORS: true, // ESSENCIAL: Permite que a logo seja lida no servidor da Vercel
+                    scrollY: 0     // ESSENCIAL: Impede o "bug da tela preta" se você rolar a página
+                },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
             
-            // Oculta a borda para a impressão
-            elemento.style.border = 'none';
-            
-            // 3. Executa a conversão e fecha o aviso quando o download começar
             html2pdf().set(opcoes).from(elemento).save().then(() => {
-                elemento.style.border = '1px solid #333'; // Restaura a borda na tela
-                Swal.close(); // Esconde o aviso de "Gerando documento"
+                // Restaura o visual original na tela do sistema
+                elemento.style.backgroundColor = ''; 
+                elemento.style.border = '1px solid #333';
+                Swal.close(); 
             }).catch(erro => {
                 console.error("Erro na geração do PDF:", erro);
+                elemento.style.backgroundColor = '';
                 elemento.style.border = '1px solid #333';
                 Swal.fire({
                     title: 'Ops!',
-                    text: 'Não foi possível gerar o PDF. Verifique o console.',
+                    text: 'Não foi possível gerar o PDF. Tente novamente.',
                     icon: 'error',
                     background: 'var(--card-bg)',
                     color: 'var(--text-white)',
