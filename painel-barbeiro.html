@@ -167,6 +167,7 @@
     <div class="bottom-nav">
         <a href="#" class="nav-item active"><span class="nav-icon">📅</span>Agenda</a>
         <a href="#" class="nav-item" onclick="fazerLogout()"><span class="nav-icon">🚪</span>Sair</a>
+        <a href="#" class="nav-item" onclick="abrirModalBloqueio()"><span class="nav-icon">🔒</span>Travar Agenda</a>
     </div>
 
     <script>
@@ -461,6 +462,73 @@ async function processarRelatorioBarbeiro(dataInicio, dataFim) {
             color: '#fff',
             confirmButtonColor: '#d4af37'
         });
+    }
+}
+
+// Abre a janela para o barbeiro escolher o período
+function abrirModalBloqueio() {
+    Swal.fire({
+        title: 'Trancar Agenda',
+        html: `
+            <div style="text-align: left; color: #ccc;">
+                <label>Data de ausência:</label>
+                <input type="date" id="block-data" class="swal2-input" style="margin: 5px 0 15px 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
+                <label>Hora Inicial (Ex: 14:00):</label>
+                <input type="time" id="block-inicio" class="swal2-input" style="margin: 5px 0 15px 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
+                <label>Hora Final (Ex: 16:00):</label>
+                <input type="time" id="block-fim" class="swal2-input" style="margin: 5px 0 15px 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
+                <label>Motivo (Apenas controle interno):</label>
+                <input type="text" id="block-motivo" class="swal2-input" placeholder="Ex: Consulta médica" style="margin: 5px 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
+            </div>
+        `,
+        background: '#1a1a1a', color: '#fff',
+        showCancelButton: true,
+        confirmButtonColor: '#d4af37', cancelButtonColor: '#d33',
+        confirmButtonText: 'Confirmar Trava', cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            const data = document.getElementById('block-data').value;
+            const inicio = document.getElementById('block-inicio').value;
+            const fim = document.getElementById('block-fim').value;
+            const motivo = document.getElementById('block-motivo').value;
+
+            if (!data || !inicio || !fim) {
+                Swal.showValidationMessage('Preencha a data e os horários!');
+                return false;
+            }
+            if (inicio >= fim) {
+                Swal.showValidationMessage('A hora final deve ser maior que a inicial!');
+                return false;
+            }
+            return { data_bloqueio: data, hora_inicio: inicio, hora_fim: fim, motivo };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            enviarBloqueioAgenda(result.value);
+        }
+    });
+}
+
+// Envia a ordem para o Render
+async function enviarBloqueioAgenda(dados) {
+    const token = localStorage.getItem('token');
+    try {
+        const resposta = await fetch('https://bravus-api.onrender.com/api/bloqueios', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(dados)
+        });
+
+        if (resposta.ok) {
+            Swal.fire({ 
+                title: 'Agenda Fechada!', 
+                text: 'Os clientes não poderão marcar horários neste período.', 
+                icon: 'success', background: '#1a1a1a', color: '#fff', confirmButtonColor: '#d4af37' 
+            });
+        } else {
+            Swal.fire({ title: 'Ops!', text: 'Falha ao registrar trava.', icon: 'error', background: '#1a1a1a', color: '#fff', confirmButtonColor: '#d4af37' });
+        }
+    } catch (erro) {
+        Swal.fire({ title: 'Erro', text: 'Falha de conexão com o servidor.', icon: 'error', background: '#1a1a1a', color: '#fff', confirmButtonColor: '#d4af37' });
     }
 }
 
