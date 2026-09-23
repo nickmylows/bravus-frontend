@@ -465,45 +465,96 @@ async function processarRelatorioBarbeiro(dataInicio, dataFim) {
     }
 }
 
-// Abre a janela para o barbeiro escolher o período
+// Abre a janela para o barbeiro escolher o período (com opção de dia inteiro)
 function abrirModalBloqueio() {
     Swal.fire({
         title: 'Trancar Agenda',
         html: `
-            <div style="text-align: left; color: #ccc;">
-                <label>Data de ausência:</label>
-                <input type="date" id="block-data" class="swal2-input" style="margin: 5px 0 15px 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
-                <label>Hora Inicial (Ex: 14:00):</label>
-                <input type="time" id="block-inicio" class="swal2-input" style="margin: 5px 0 15px 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
-                <label>Hora Final (Ex: 16:00):</label>
-                <input type="time" id="block-fim" class="swal2-input" style="margin: 5px 0 15px 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
-                <label>Motivo (Apenas controle interno):</label>
-                <input type="text" id="block-motivo" class="swal2-input" placeholder="Ex: Consulta médica" style="margin: 5px 0; background: #2a2a2a; color: #fff; border: 1px solid #444;">
+            <div style="display: flex; flex-direction: column; gap: 15px; text-align: left; margin-top: 10px;">
+                
+                <!-- Campo de Data -->
+                <div>
+                    <label style="color: #ccc; font-size: 14px; font-weight: bold;">Data de ausência:</label>
+                    <input type="date" id="block-data" class="swal2-input" style="width: 100%; margin: 5px 0 0 0; background: #2a2a2a; color: #fff; border: 1px solid #444; box-sizing: border-box;">
+                </div>
+                
+                <!-- Checkbox Dia Inteiro -->
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                    <input type="checkbox" id="block-dia-inteiro" style="width: 20px; height: 20px; cursor: pointer;">
+                    <label for="block-dia-inteiro" style="color: #d4af37; font-size: 15px; cursor: pointer; font-weight: bold; margin: 0;">Bloquear o dia inteiro</label>
+                </div>
+
+                <!-- Campos de Horário (Lado a lado) -->
+                <div id="container-horarios" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="color: #ccc; font-size: 14px;">Hora Inicial:</label>
+                        <input type="time" id="block-inicio" class="swal2-input" style="width: 100%; margin: 5px 0 0 0; background: #2a2a2a; color: #fff; border: 1px solid #444; box-sizing: border-box;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="color: #ccc; font-size: 14px;">Hora Final:</label>
+                        <input type="time" id="block-fim" class="swal2-input" style="width: 100%; margin: 5px 0 0 0; background: #2a2a2a; color: #fff; border: 1px solid #444; box-sizing: border-box;">
+                    </div>
+                </div>
+
+                <!-- Campo de Motivo -->
+                <div>
+                    <label style="color: #ccc; font-size: 14px;">Motivo (Apenas controle interno):</label>
+                    <input type="text" id="block-motivo" class="swal2-input" placeholder="Ex: Feriado, Folga, Médico..." style="width: 100%; margin: 5px 0 0 0; background: #2a2a2a; color: #fff; border: 1px solid #444; box-sizing: border-box;">
+                </div>
             </div>
         `,
-        background: '#1a1a1a', color: '#fff',
+        background: '#1a1a1a', 
+        color: '#fff',
         showCancelButton: true,
-        confirmButtonColor: '#d4af37', cancelButtonColor: '#d33',
-        confirmButtonText: 'Confirmar Trava', cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d4af37', 
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Confirmar Trava', 
+        cancelButtonText: 'Cancelar',
+        didOpen: () => {
+            // Cria o evento que esconde os relógios quando o "Dia Inteiro" é marcado
+            const checkbox = document.getElementById('block-dia-inteiro');
+            const containerHorarios = document.getElementById('container-horarios');
+            
+            checkbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    containerHorarios.style.display = 'none'; // Esconde os relógios
+                } else {
+                    containerHorarios.style.display = 'flex'; // Mostra os relógios
+                }
+            });
+        },
         preConfirm: () => {
             const data = document.getElementById('block-data').value;
-            const inicio = document.getElementById('block-inicio').value;
-            const fim = document.getElementById('block-fim').value;
+            const diaInteiro = document.getElementById('block-dia-inteiro').checked;
+            let inicio = document.getElementById('block-inicio').value;
+            let fim = document.getElementById('block-fim').value;
             const motivo = document.getElementById('block-motivo').value;
 
-            if (!data || !inicio || !fim) {
-                Swal.showValidationMessage('Preencha a data e os horários!');
+            if (!data) {
+                Swal.showValidationMessage('Por favor, escolha uma data!');
                 return false;
             }
-            if (inicio >= fim) {
-                Swal.showValidationMessage('A hora final deve ser maior que a inicial!');
-                return false;
+
+            // A Mágica do Dia Inteiro
+            if (diaInteiro) {
+                inicio = '00:00';
+                fim = '23:59';
+            } else {
+                if (!inicio || !fim) {
+                    Swal.showValidationMessage('Preencha os horários ou marque a opção de Dia Inteiro!');
+                    return false;
+                }
+                if (inicio >= fim) {
+                    Swal.showValidationMessage('A hora final deve ser maior que a hora inicial!');
+                    return false;
+                }
             }
+            
             return { data_bloqueio: data, hora_inicio: inicio, hora_fim: fim, motivo };
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            enviarBloqueioAgenda(result.value);
+            enviarBloqueioAgenda(result.value); // Usa a função de envio que você já tem
         }
     });
 }
